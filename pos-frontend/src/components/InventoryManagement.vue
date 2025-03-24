@@ -260,7 +260,8 @@ const filteredInventory = computed(() => {
     result = result.filter(item => 
       item.location?.toLowerCase().includes(query) ||
       item.status?.toLowerCase().includes(query) ||
-      item.id?.toString().includes(query) // Add search by ID
+      item.name?.toLowerCase().includes(query) || // Add search by name
+      item.id?.toString().includes(query)
     )
   }
 
@@ -268,6 +269,9 @@ const filteredInventory = computed(() => {
     let comparison = 0
     
     switch(sortBy.value) {
+      case 'name':
+        comparison = (a.name || '').localeCompare(b.name || '')
+        break
       case 'quantity':
         comparison = a.quantity - b.quantity
         break
@@ -448,7 +452,9 @@ const fetchInventory = async () => {
       price: parseFloat(item.price || 0),
       profit: parseFloat(item.profit || 0),
       total_value: parseFloat(item.total_value || 0),
-      total_profit: parseFloat(item.total_profit || 0)
+      total_profit: parseFloat(item.total_profit || 0),
+      brand_name: item.brand_name || '',
+      name: item.name || ''
     }))
   } catch (error) {
     console.error('Error fetching inventory:', error)
@@ -536,77 +542,55 @@ const confirmStockAdjustment = async () => {
   try {
     isUpdatingStock.value = true
     const newQuantity = Math.max(0, selectedItem.value.quantity + stockAdjustment.value.quantity)
-    const updatedItem = {
-      ...selectedItem.value,
+    
+    // Update inventory first
+    const response = await connection.put(`/inventory/${selectedItem.value.id}`, {
       quantity: newQuantity,
       restock_date_time: stockAdjustment.value.restock_date_time,
       added_stock_amount: stockAdjustment.value.quantity > 0 ? stockAdjustment.value.quantity : 0,
       location: selectedItem.value.location,
       status: determineStatus(newQuantity)
-    }
+    })
 
-    // First update inventory
-    const response = await connection.put(`/inventory/${selectedItem.value.id}`, updatedItem)
-    
-    // Update local state immediately
+    // Update local state
     const index = inventory.value.findIndex(item => item.id === selectedItem.value.id)
     if (index !== -1) {
-      // Create a new array to trigger reactivity
-      inventory.value = [
-        ...inventory.value.slice(0, index),
-        response.data,
-        ...inventory.value.slice(index + 1)
-      ]
-
-      // Add to stock history
-      addStockHistory(
-        selectedItem.value.id,
-        stockAdjustment.value.quantity,
-        stockAdjustment.value.quantity < 0 ? 'Stock Removal' : 'Stock Addition',
-        stockAdjustment.value.quantity < 0 ? 'Manual stock reduction' : 'Manual stock addition',
-        selectedItem.value.quantity,
-        newQuantity
-      )
+      inventory.value[index] = response.data
     }
 
     // Only generate GRN for positive stock adjustments
     if (stockAdjustment.value.quantity > 0) {
       try {
-        // Generate GRN number first
         const timestamp = Date.now()
         const randomNum = Math.floor(Math.random() * 1000)
         const newGrnNumber = `GRN-${timestamp}-${randomNum}`
         grnNumber.value = newGrnNumber
 
-        // Fetch product details for the inventory
-        const productResponse = await connection.get(`/products/inventory/${selectedItem.value.id}`)
-        const product = productResponse.data
-
-        if (!product) {
-          console.warn('No product found for this inventory')
-          throw new Error('No product found for this inventory')
-        }
+        // Get the supplier and admin IDs from the selected item or use default values
+        const supplierID = response.data.supplier_id || 1  // Use a default supplier ID if null
+        const adminID = response.data.admin_id || 1        // Use a default admin ID if null
 
         // Create GRN note
         await connection.post('/grn-notes', {
           grn_number: newGrnNumber,
-          product_id: product.id,
-          supplier_id: product.supplier_id,
-          admin_id: product.admin_id,
-          price: product.price,
+          product_id: selectedItem.value.id,
+          supplier_id: supplierID,
+          admin_id: adminID,
+          price: selectedItem.value.price || 0,
           product_details: {
-            name: product.name,
-            description: product.description,
-            brand_name: product.brand_name,
-            size: product.size,
-            color: product.color,
-            bar_code: product.bar_code
+            name: selectedItem.value.name || '',
+            description: selectedItem.value.description || '',
+            brand_name: selectedItem.value.brand_name || '',
+            size: selectedItem.value.size || '',
+            color: selectedItem.value.color || ''
           },
-          received_date: stockAdjustment.value.restock_date_time
+          received_date: stockAdjustment.value.restock_date_time,
+          previous_quantity: selectedItem.value.quantity - stockAdjustment.value.quantity,
+          new_quantity: newQuantity,
+          adjusted_quantity: stockAdjustment.value.quantity,
+          adjustment_type: 'addition'
         })
 
-        // Set the product data and show GRN
-        grnProduct.value = product
         showGRN.value = true
 
         await Swal.fire({
@@ -619,30 +603,18 @@ const confirmStockAdjustment = async () => {
           background: '#1e293b',
           color: '#ffffff'
         })
-
       } catch (grnError) {
         console.error('Error generating GRN:', grnError)
         Swal.fire({
           icon: "warning",
           title: "Stock Updated",
-          text: "Stock was updated but there was an error generating the GRN report: " + grnError.message,
+          text: `Stock was updated but there was an error generating the GRN report: ${grnError.response?.data?.message || grnError.message}`,
           background: '#1e293b',
           color: '#ffffff'
         })
       }
-    } else {
-      // For stock removal, just show success message
-      await Swal.fire({
-        position: "center",
-        icon: "success",
-        title: "Stock Removed Successfully!",
-        showConfirmButton: false,
-        timer: 1500,
-        background: '#1e293b',
-        color: '#ffffff'
-      })
     }
-    
+
     closeStockModal()
   } catch (error) {
     console.error('Error updating stock:', error)
@@ -871,14 +843,12 @@ const exportInventory = async () => {
         'Name',
         'Brand Name',
         'Description',
-        'Bar Code',
         'Size',
         'Color',
         'Quantity',
         'Price (Rs.)',
         'Seller Price (Rs.)',
         'Discount (%)',
-        'Tax (%)',
         'Profit (Rs.)',
         'Total Value (Rs.)',
         'Location',
@@ -898,14 +868,12 @@ const exportInventory = async () => {
       item.product?.name || 'N/A',
       item.product?.brand_name || 'N/A',
       item.product?.description || 'N/A',
-      item.product?.bar_code || 'N/A',
       item.product?.size || 'N/A',
       item.product?.color || 'N/A',
       item.quantity,
       item.product?.price || 0,
       item.product?.seller_price || 0,
       item.product?.discount || 0,
-      item.product?.tax || 0,
       item.product?.profit || 0,
       (item.product?.price || 0) * item.quantity,
       item.location,
@@ -962,14 +930,12 @@ const exportInventory = async () => {
       35,  // Name
       25,  // Brand Name
       45,  // Description
-      20,  // Bar Code
       15,  // Size
       15,  // Color
       12,  // Quantity
       15,  // Price
       15,  // Seller Price
       12,  // Discount
-      12,  // Tax
       15,  // Profit
       18,  // Total Value
       15,  // Location
@@ -1257,13 +1223,18 @@ const exportToPDF = async () => {
               <thead>
                 <tr class="text-gray-300 text-left text-sm">
                   <th class="text-left font-medium pb-4">ID</th>
+                  <th @click="toggleSort('name')" class="text-left cursor-pointer font-medium pb-4">
+                    <div class="flex gap-1 items-center">
+                      Name
+                      <component :is="getSortIcon('name')" v-if="getSortIcon('name')" class="h-4 w-4" />
+                    </div>
+                  </th>
                   <th @click="toggleSort('quantity')" class="text-left cursor-pointer font-medium pb-4">
                     <div class="flex gap-1 items-center">
                       Quantity
                       <component :is="getSortIcon('quantity')" v-if="getSortIcon('quantity')" class="h-4 w-4" />
                     </div>
                   </th>
-                  <!-- Add new column header -->
                   <th @click="toggleSort('added_stock_amount')" class="text-left cursor-pointer font-medium pb-4">
                     <div class="flex gap-1 items-center">
                       Added Stock
@@ -1296,12 +1267,12 @@ const exportToPDF = async () => {
                     class="border-gray-700/50 border-t duration-200 hover:bg-gray-700/30 transition-colors"
                     :class="{'bg-red-900/20': item.status === 'Low Stock' || item.status === 'Out Of Stock'}">
                   <td class="font-medium py-4">{{ item.id }}</td>
+                  <td class="font-medium">{{ item.name }}</td>
                   <td>
                     <span :class="{'text-red-400': item.status === 'Low Stock' || item.status === 'Out Of Stock', 'font-bold': true}">
                       {{ item.quantity }}
                     </span>
                   </td>
-                  <!-- Add new column data -->
                   <td>
                     <span class="text-emerald-400 font-medium">
                       {{ item.added_stock_amount || 0 }}
@@ -1320,7 +1291,9 @@ const exportToPDF = async () => {
                       {{ item.status }}
                     </span>
                   </td>
-                  <td class="text-gray-300 text-sm">{{ new Date(item.restock_date_time).toLocaleString() }}</td>
+                  <td class="text-gray-300 text-sm">
+                    {{ item.restock_date_time ? new Date(item.restock_date_time).toLocaleString() : 'Not updated' }}
+                  </td>
                   <td>
                     <div class="flex gap-2">
                       <button @click="viewItemDetails(item)" 

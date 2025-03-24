@@ -77,6 +77,7 @@ Route::put('/products/{id}', [ProductController::class, 'update']);
 Route::delete('/products/{id}', [ProductController::class, 'destroy']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::get('/products/inventory/{id}', [ProductController::class, 'getByInventoryId']); // Add this line
+Route::post('/products/{id}/image', [ProductController::class, 'uploadImage']); // Add this line
 
 // product image
 Route::get('/products/images', [ProductImagesController::class, 'index']);

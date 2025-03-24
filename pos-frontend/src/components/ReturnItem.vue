@@ -22,9 +22,8 @@ import Swal from 'sweetalert2'
 import html2pdf from 'html2pdf.js'
 import Header from './Header.vue'
 import Sidebar from './Sidebar.vue'
-import SidebarCashier from './Sidebar-cashier.vue' // Add this import
+import SidebarCashier from './Sidebar-cashier.vue'
 
-// State variables
 const returnItems = ref([])
 const isLoading = ref(false)
 const searchQuery = ref('')
@@ -53,7 +52,6 @@ const showSidebar = () => {
   isSidebarVisible.value = true
 }
 
-// Date range options
 const customStartDate = ref('')
 const customEndDate = ref('')
 
@@ -66,7 +64,6 @@ const dateRanges = [
   { id: 'custom', label: 'Custom Range' }
 ]
 
-// Fetch return items from API
 const fetchReturnItems = async () => {
   isLoading.value = true
   try {
@@ -89,17 +86,14 @@ const fetchReturnItems = async () => {
   }
 }
 
-// Call fetchReturnItems when component mounts
 onMounted(() => {
   isAdmin.value = localStorage.getItem('isAdmin') === 'true'
   fetchReturnItems()
 })
 
-// Filter return items based on search query and date range
 const filteredReturnItems = computed(() => {
   let result = [...returnItems.value]
 
-  // Apply search filter
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(item =>
@@ -110,7 +104,6 @@ const filteredReturnItems = computed(() => {
     )
   }
 
-  // Apply date range filter
   if (selectedDateRange.value !== 'all') {
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -139,7 +132,6 @@ const filteredReturnItems = computed(() => {
           const end = customEndDate.value ? new Date(customEndDate.value) : null
           
           if (start && end) {
-            // Set end date to end of day
             end.setHours(23, 59, 59, 999)
             return itemDate >= start && itemDate <= end
           }
@@ -150,7 +142,6 @@ const filteredReturnItems = computed(() => {
     })
   }
 
-  // Apply sorting
   result = result.sort((a, b) => {
     let valueA, valueB
 
@@ -186,18 +177,15 @@ const filteredReturnItems = computed(() => {
   return result
 })
 
-// Paginate the filtered return items
 const paginatedReturnItems = computed(() => {
   const startIndex = (currentPage.value - 1) * itemsPerPage.value
   return filteredReturnItems.value.slice(startIndex, startIndex + itemsPerPage.value)
 })
 
-// Calculate total pages
 const totalPages = computed(() => {
   return Math.ceil(filteredReturnItems.value.length / itemsPerPage.value)
 })
 
-// Toggle sort direction
 const toggleSort = (field) => {
   if (sortField.value === field) {
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
@@ -207,18 +195,15 @@ const toggleSort = (field) => {
   }
 }
 
-// Toggle filter panel
 const toggleFilterPanel = () => {
   isFilterPanelOpen.value = !isFilterPanelOpen.value
 }
 
-// Reset custom dates
 const resetCustomDates = () => {
   customStartDate.value = ''
   customEndDate.value = ''
 }
 
-// Reset filters
 const resetFilters = () => {
   searchQuery.value = ''
   selectedDateRange.value = 'all'
@@ -226,7 +211,6 @@ const resetFilters = () => {
   currentPage.value = 1
 }
 
-// Toggle return item selection
 const toggleReturnSelection = (returnId) => {
   const index = selectedReturns.value.indexOf(returnId)
   if (index === -1) {
@@ -236,7 +220,6 @@ const toggleReturnSelection = (returnId) => {
   }
 }
 
-// Select all return items on current page
 const selectAllReturns = () => {
   if (selectedReturns.value.length === paginatedReturnItems.value.length) {
     selectedReturns.value = []
@@ -245,7 +228,6 @@ const selectAllReturns = () => {
   }
 }
 
-// Open export modal
 const openExportModal = () => {
   if (selectedReturns.value.length > 0) {
     isExportModalOpen.value = true
@@ -261,7 +243,6 @@ const openExportModal = () => {
   }
 }
 
-// Export selected return items
 const exportReturnItems = async () => {
   isLoading.value = true
 
@@ -270,7 +251,6 @@ const exportReturnItems = async () => {
       selectedReturns.value.includes(item.id)
     )
 
-    // Create PDF content
     const content = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h1 style="color: #1a2234; text-align: center;">Return Items Report</h1>
@@ -302,7 +282,6 @@ const exportReturnItems = async () => {
       </div>
     `
 
-    // PDF options
     const options = {
       margin: 1,
       filename: `returns_export_${new Date().toISOString().split('T')[0]}.pdf`,
@@ -311,7 +290,6 @@ const exportReturnItems = async () => {
       jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
     }
 
-    // Generate PDF
     await html2pdf().from(content).set(options).save()
 
     isExportModalOpen.value = false
@@ -339,13 +317,11 @@ const exportReturnItems = async () => {
   }
 }
 
-// View return item details
 const viewReturnDetails = (item) => {
   currentReturnDetail.value = item
   isDetailModalOpen.value = true
 }
 
-// Format date
 const formatDate = (dateString) => {
   const date = new Date(dateString)
   return date.toLocaleDateString('en-US', {
@@ -355,7 +331,6 @@ const formatDate = (dateString) => {
   })
 }
 
-// Format time
 const formatTime = (dateString) => {
   const date = new Date(dateString)
   return date.toLocaleTimeString('en-US', {
@@ -369,7 +344,6 @@ const formatTime = (dateString) => {
   <div class="min-h-screen bg-gradient-to-br from-[#0f172a] to-[#1e293b] text-white font-sans">
     <div class="fixed left-0 top-0 w-2 h-full z-[55] hover-trigger" @mouseenter="showSidebar"></div>
 
-    <!-- Conditionally render sidebar based on admin status -->
     <SidebarCashier 
       v-if="!isAdmin"
       :isVisible="isSidebarVisible" 
@@ -442,7 +416,6 @@ const formatTime = (dateString) => {
                 </div>
               </div>
 
-              <!-- Add custom date range inputs -->
               <div v-if="selectedDateRange === 'custom'" class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm text-gray-400 mb-1.5 font-medium" for="start-date">Start Date</label>
@@ -721,7 +694,6 @@ const formatTime = (dateString) => {
         </div>
       </div>
 
-      <!-- Export Modal -->
       <div v-if="isExportModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-[6px]" @click="isExportModalOpen = false"></div>
 
@@ -760,12 +732,10 @@ const formatTime = (dateString) => {
         </div>
       </div>
 
-      <!-- Detail Modal -->
       <div v-if="isDetailModalOpen && currentReturnDetail" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="isDetailModalOpen = false"></div>
 
         <div class="relative bg-gradient-to-br from-[#1a2234] via-[#161d2b] to-[#1a2234] rounded-2xl shadow-2xl border border-[#334155]/50 w-full max-w-3xl p-8 z-10 animate-slide-up max-h-[90vh] overflow-auto custom-scrollbar">
-          <!-- Header -->
           <div class="absolute top-6 right-6 flex gap-2">
             <button @click="isDetailModalOpen = false" 
               class="p-2.5 bg-[#1e293b]/80 hover:bg-[#263244] border border-[#334155] rounded-lg transition-all duration-300 group" 
@@ -792,9 +762,7 @@ const formatTime = (dateString) => {
           </div>
 
           <div class="space-y-6">
-            <!-- Info Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- Product Info Card -->
               <div class="bg-[#1e293b]/40 backdrop-blur-sm rounded-xl border border-[#334155]/50 overflow-hidden">
                 <div class="p-5 border-b border-[#334155]/50">
                   <h3 class="text-sm font-semibold text-gray-300 flex items-center gap-2">
@@ -815,7 +783,6 @@ const formatTime = (dateString) => {
                 </div>
               </div>
 
-              <!-- Return Details Card -->
               <div class="bg-[#1e293b]/40 backdrop-blur-sm rounded-xl border border-[#334155]/50 overflow-hidden">
                 <div class="p-5 border-b border-[#334155]/50">
                   <h3 class="text-sm font-semibold text-gray-300 flex items-center gap-2">
@@ -836,7 +803,6 @@ const formatTime = (dateString) => {
               </div>
             </div>
 
-            <!-- Return Reason Card -->
             <div class="bg-[#1e293b]/40 backdrop-blur-sm rounded-xl border border-[#334155]/50 overflow-hidden">
               <div class="p-5 border-b border-[#334155]/50">
                 <h3 class="text-sm font-semibold text-gray-300 flex items-center gap-2">
@@ -849,7 +815,6 @@ const formatTime = (dateString) => {
               </div>
             </div>
 
-            <!-- Related Sale Card -->
             <div v-if="currentReturnDetail.sales_id" 
               class="bg-[#1e293b]/40 backdrop-blur-sm rounded-xl border border-[#334155]/50 overflow-hidden">
               <div class="p-5 border-b border-[#334155]/50">

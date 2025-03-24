@@ -12,7 +12,6 @@ import {
 import { connection } from '@/api/axios'
 import Swal from 'sweetalert2'
 
-// Formatter functions
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('en-LK', {
     style: 'currency',
@@ -31,7 +30,6 @@ const formatDate = (dateString) => {
   }).format(date)
 }
 
-// State management
 const activeTab = ref('assets')
 const isLoading = ref(true)
 const showForm = ref(false)
@@ -43,33 +41,27 @@ const currentItem = ref(null)
 const showViewModal = ref(false)
 const viewingItem = ref(null)
 
-// Data storage
 const assets = ref([])
 const investments = ref([])
 const loans = ref([])
 
-// Form data
 const formData = ref({
-  // Asset fields
   name: '',
   type: '',
   location: '',
   value: '',
   
-  // Investment fields
   investor_name: '',
   amount: '',
   investment_date: '',
   description: '',
   
-  // Loan fields
   borrower_name: '',
   loan_date: '',
   due_date: '',
   status: 'pending'
 })
 
-// Computed properties
 const filteredItems = computed(() => {
   let items = []
   
@@ -88,7 +80,6 @@ const filteredItems = computed(() => {
   if (!searchQuery.value) return items
   
   return items.filter(item => {
-    // Search in different fields based on the active tab
     if (activeTab.value === 'assets') {
       return item.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
              item.type.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -109,7 +100,6 @@ const sortedItems = computed(() => {
     let aValue = a[sortField.value]
     let bValue = b[sortField.value]
     
-    // Handle numeric values
     if (!isNaN(parseFloat(aValue)) && !isNaN(parseFloat(bValue))) {
       aValue = parseFloat(aValue)
       bValue = bValue
@@ -183,7 +173,6 @@ const isFormValid = computed(() => {
 
 const isSubmitting = ref(false)
 
-// Methods
 const fetchData = async () => {
   isLoading.value = true
   try {
@@ -196,11 +185,9 @@ const fetchData = async () => {
     assets.value = assetsRes.data
     investments.value = investmentsRes.data
     
-    // Update loans status and save to backend if needed
     const updatedLoans = updateOverdueLoans(loansRes.data)
     loans.value = updatedLoans
     
-    // Update any overdue loans in the backend
     const overdueUpdates = updatedLoans
       .filter(loan => loan.status === 'overdue' && loansRes.data.find(l => l.id === loan.id)?.status === 'pending')
       .map(loan => connection.put(`/loans/${loan.id}`, { ...loan }))
@@ -238,7 +225,6 @@ const openEditForm = (item) => {
   formMode.value = 'edit'
   currentItem.value = item
   
-  // Copy item data to form
   if (activeTab.value === 'assets') {
     formData.value = {
       name: item.name,
@@ -296,7 +282,6 @@ const handleSubmit = async () => {
   isSubmitting.value = true
   try {
     if (formMode.value === 'add') {
-      // Add new item
       let response
       if (activeTab.value === 'assets') {
         if (!isValidAssetForm.value) {
@@ -317,7 +302,6 @@ const handleSubmit = async () => {
         response = await connection.post('/loans', formData.value)
         loans.value.push(response.data)
       }
-      // Show success message
       Swal.fire({
         icon: 'success',
         title: 'Success!',
@@ -326,7 +310,6 @@ const handleSubmit = async () => {
         color: '#ffffff'
       })
     } else {
-      // Update existing item
       let response
       if (activeTab.value === 'assets') {
         if (!isValidAssetForm.value) {
@@ -350,7 +333,6 @@ const handleSubmit = async () => {
         const index = loans.value.findIndex(item => item.id === currentItem.value.id)
         if (index !== -1) loans.value[index] = response.data
       }
-      // Show success message
       Swal.fire({
         icon: 'success',
         title: 'Success!',
@@ -426,16 +408,14 @@ const viewDetails = (item) => {
   showViewModal.value = true
 }
 
-// Add this method after other methods
 const updateOverdueLoans = (loansList) => {
   const today = new Date()
-  today.setHours(0, 0, 0, 0) // Set to start of day for accurate comparison
+  today.setHours(0, 0, 0, 0) 
   
   return loansList.map(loan => {
     const dueDate = new Date(loan.due_date)
     dueDate.setHours(0, 0, 0, 0)
     
-    // If loan is pending and due date has passed, update to overdue
     if (loan.status === 'pending' && dueDate < today) {
       return {
         ...loan,
@@ -446,23 +426,19 @@ const updateOverdueLoans = (loansList) => {
   })
 }
 
-// Lifecycle hooks
 onMounted(() => {
   fetchData()
-  // Check for overdue loans every hour
   const intervalId = setInterval(() => {
     if (loans.value.length > 0) {
       loans.value = updateOverdueLoans(loans.value)
     }
-  }, 3600000) // 1 hour in milliseconds
+  }, 3600000) 
   
-  // Clean up interval on component unmount
   onUnmounted(() => {
     clearInterval(intervalId)
   })
 })
 
-// Add sidebar visibility state and methods
 const isSidebarVisible = ref(false)
 
 const toggleSidebar = () => {
@@ -480,21 +456,15 @@ const showSidebar = () => {
 
 <template>
   <div class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-    <!-- Sidebar trigger area -->
     <div class="fixed left-0 top-0 w-2 h-full z-[55] hover-trigger" 
          @mouseenter="showSidebar"></div>
 
-    <!-- Sidebar component -->
     <Sidebar :isVisible="isSidebarVisible" @closeSidebar="closeSidebar" />
     
-    <!-- Header component -->
     <Header @toggleSidebar="toggleSidebar" />
 
-    <!-- Main content - wrap existing content -->
     <div class="w-full p-4 lg:p-8 pt-28 lg:pt-28">
-      <!-- Original template content starts here -->
       <div class="financial-details-container h-screen w-full bg-gradient-to-b from-slate-900 to-slate-800 text-white flex flex-col">
-        <!-- Header -->
         <div class="px-6 py-5 flex items-center justify-between border-b border-slate-700/50 backdrop-blur-sm bg-slate-900/80">
           <div class="flex items-center">
             <div class="bg-indigo-500/10 p-2.5 rounded-xl mr-3">
@@ -520,7 +490,6 @@ const showSidebar = () => {
           </div>
         </div>
         
-        <!-- Tabs -->
         <div class="px-6 py-3 border-b border-slate-700/50 flex bg-slate-800/50 backdrop-blur-sm">
           <button @click="setActiveTab('assets')" 
                   class="px-4 py-2.5 rounded-lg flex items-center mr-2 transition-all duration-200"
@@ -542,7 +511,6 @@ const showSidebar = () => {
           </button>
         </div>
         
-        <!-- Search Bar -->
         <div class="px-6 py-4 border-b border-slate-700/50 bg-slate-800/30">
           <div class="relative">
             <input v-model="searchQuery"
@@ -555,15 +523,12 @@ const showSidebar = () => {
           </div>
         </div>
         
-        <!-- Content -->
         <div class="flex-1 overflow-auto">
-          <!-- Loading State -->
           <div v-if="isLoading" class="flex flex-col items-center justify-center h-full">
             <div class="w-14 h-14 border-4 border-indigo-400/20 border-t-indigo-400 rounded-full animate-spin"></div>
             <div class="mt-4 text-slate-400 font-medium">Loading data...</div>
           </div>
           
-          <!-- Empty State -->
           <div v-else-if="filteredItems.length === 0" class="flex flex-col items-center justify-center h-full text-center p-6">
             <div class="w-20 h-20 bg-slate-800/80 rounded-2xl flex items-center justify-center mb-5 border border-slate-700/50 shadow-xl">
               <component :is="activeTab === 'assets' ? BuildingLibraryIcon : 
@@ -582,7 +547,6 @@ const showSidebar = () => {
             </button>
           </div>
           
-          <!-- Assets Table -->
           <div v-else-if="activeTab === 'assets'" class="w-full">
             <table class="w-full border-collapse">
               <thead>
@@ -642,7 +606,6 @@ const showSidebar = () => {
             </table>
           </div>
           
-          <!-- Investments Table -->
           <div v-else-if="activeTab === 'investments'" class="w-full">
             <table class="w-full border-collapse">
               <thead>
@@ -702,7 +665,6 @@ const showSidebar = () => {
             </table>
           </div>
           
-          <!-- Loans Table -->
           <div v-else class="w-full">
             <table class="w-full border-collapse">
               <thead>
@@ -780,7 +742,6 @@ const showSidebar = () => {
           </div>
         </div>
         
-        <!-- Form Modal -->
         <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
           <div class="bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between bg-slate-800/80">
@@ -799,7 +760,6 @@ const showSidebar = () => {
             </div>
             
             <form @submit.prevent="handleSubmit" class="p-6">
-              <!-- Asset Form Fields -->
               <template v-if="activeTab === 'assets'">
                 <div class="mb-5">
                   <label class="block text-sm font-medium text-slate-300 mb-1.5">Name</label>
@@ -826,7 +786,6 @@ const showSidebar = () => {
                 </div>
               </template>
               
-              <!-- Investment Form Fields -->
               <template v-else-if="activeTab === 'investments'">
                 <div class="mb-5">
                   <label class="block text-sm font-medium text-slate-300 mb-1.5">Investor Name</label>
@@ -853,7 +812,6 @@ const showSidebar = () => {
                 </div>
               </template>
               
-              <!-- Loan Form Fields -->
               <template v-else>
                 <div class="mb-5">
                   <label class="block text-sm font-medium text-slate-300 mb-1.5">Borrower Name</label>
@@ -924,7 +882,6 @@ const showSidebar = () => {
           </div>
         </div>
 
-        <!-- View Modal -->
         <div v-if="showViewModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div class="bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl w-full max-w-xl p-6 shadow-2xl border border-slate-700/50 max-h-[90vh] overflow-auto">
             <div class="flex justify-between items-center mb-6 border-b border-slate-700/50 pb-4">
@@ -945,7 +902,6 @@ const showSidebar = () => {
             </div>
 
             <div class="space-y-5" v-if="viewingItem">
-              <!-- Asset Details -->
               <template v-if="activeTab === 'assets'">
                 <div class="bg-slate-800/50 backdrop-blur-sm p-5 rounded-xl border border-slate-700/30 space-y-4">
                   <div>
@@ -967,7 +923,6 @@ const showSidebar = () => {
                 </div>
               </template>
 
-              <!-- Investment Details -->
               <template v-if="activeTab === 'investments'">
                 <div class="bg-slate-800/50 backdrop-blur-sm p-5 rounded-xl border border-slate-700/30 space-y-4">
                   <div>
@@ -989,7 +944,6 @@ const showSidebar = () => {
                 </div>
               </template>
 
-              <!-- Loan Details -->
               <template v-if="activeTab === 'loans'">
                 <div class="bg-slate-800/50 backdrop-blur-sm p-5 rounded-xl border border-slate-700/30 space-y-4">
                   <div>
@@ -1050,7 +1004,6 @@ const showSidebar = () => {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
-/* Custom scrollbar for modern browsers */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -1069,12 +1022,10 @@ const showSidebar = () => {
   background: rgba(99, 102, 241, 0.5);
 }
 
-/* Add smooth transitions */
 * {
   transition: background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
-/* Add new styles for sidebar trigger */
 .hover-trigger {
   background: transparent;
 }

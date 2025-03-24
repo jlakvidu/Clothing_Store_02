@@ -1,16 +1,18 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import html2pdf from 'html2pdf.js'
 import { XMarkIcon, ArrowDownTrayIcon, PrinterIcon, CheckCircleIcon, TruckIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
   productData: {
     type: Object,
-    required: true
+    required: true,
+    default: () => ({})
   },
   grnNumber: {
     type: String,
-    required: true
+    required: true,
+    default: ''
   },
   showModal: {
     type: Boolean,
@@ -19,6 +21,19 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close'])
+
+watch(() => props.productData, (newVal) => {
+  console.log('GRN Product Data:', newVal)
+}, { immediate: true })
+
+watch(() => props.grnNumber, (newVal) => {
+  console.log('GRN Number:', newVal)
+}, { immediate: true })
+
+watch(() => props.productData?.supplierDetails, (newVal) => {
+  console.log('Supplier Details:', newVal)
+}, { immediate: true })
+
 const isPrinting = ref(false)
 const currentStatus = ref('Received')
 
@@ -67,14 +82,24 @@ const statusColor = computed(() => {
   }
 })
 
-// Generate a random reference number for the order
 const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
+
+const supplierDetails = computed(() => props.productData?.supplierDetails || {})
+const productDetails = computed(() => ({
+  name: props.productData?.name || 'N/A',
+  description: props.productData?.description || 'N/A',
+  brand_name: props.productData?.brand_name || 'N/A',
+  size: props.productData?.size || 'N/A',
+  color: props.productData?.color || 'N/A',
+  price: props.productData?.price || 0,
+  quantity: props.productData?.quantity || 0,
+  bar_code: props.productData?.bar_code || 'N/A'
+}))
 </script>
 
 <template>
-  <div v-if="showModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+  <div v-if="showModal && productData" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
     <div class="bg-white rounded-xl w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-auto">
-      <!-- Header Controls -->
       <div class="flex justify-between items-center p-5 border-b bg-gray-50 rounded-t-xl">
         <div class="flex items-center">
           <DocumentTextIcon class="w-6 h-6 text-blue-600 mr-2" />
@@ -105,12 +130,9 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
         </div>
       </div>
 
-      <!-- GRN Content -->
       <div id="grn-content" class="bg-white p-8">
-        <!-- Company Header with Logo -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6">
           <div class="flex items-center mb-4 md:mb-0">
-            <!-- Logo Placeholder -->
             <div class="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center mr-4 text-white">
               <TruckIcon class="w-10 h-10" />
             </div>
@@ -144,12 +166,10 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
           </div>
         </div>
 
-        <!-- Document Watermark (visible in print only) -->
         <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 print:opacity-5">
           <div class="rotate-45 text-gray-300 text-9xl font-bold tracking-widest">RECEIVED</div>
         </div>
 
-        <!-- GRN Details -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
             <h3 class="font-bold text-gray-800 mb-3 pb-2 border-b flex items-center">
@@ -164,10 +184,6 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
               <div class="flex border-b border-gray-100 pb-2">
                 <span class="font-medium w-40 text-gray-500">Date Received:</span>
                 <span class="font-semibold text-gray-800">{{ currentDate }}</span>
-              </div>
-              <div class="flex border-b border-gray-100 pb-2">
-                <span class="font-medium w-40 text-gray-500">Inventory ID:</span>
-                <span class="font-semibold text-gray-800">{{ productData.inventory_id }}</span>
               </div>
               <div class="flex border-b border-gray-100 pb-2">
                 <span class="font-medium w-40 text-gray-500">Admin ID:</span>
@@ -194,15 +210,15 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
               </div>
               <div class="flex border-b border-gray-100 pb-2">
                 <span class="font-medium w-40 text-gray-500">Company Name:</span>
-                <span class="font-semibold text-gray-800">{{ productData.supplierDetails?.name || 'N/A' }}</span>
+                <span class="font-semibold text-gray-800">{{ supplierDetails.name || 'N/A' }}</span>
               </div>
               <div class="flex border-b border-gray-100 pb-2">
                 <span class="font-medium w-40 text-gray-500">Email Address:</span>
-                <span class="font-semibold text-gray-800">{{ productData.supplierDetails?.email || 'N/A' }}</span>
+                <span class="font-semibold text-gray-800">{{ supplierDetails.email || 'N/A' }}</span>
               </div>
               <div class="flex border-b border-gray-100 pb-2">
                 <span class="font-medium w-40 text-gray-500">Contact Number:</span>
-                <span class="font-semibold text-gray-800">{{ productData.supplierDetails?.contact || 'N/A' }}</span>
+                <span class="font-semibold text-gray-800">{{ supplierDetails.contact || 'N/A' }}</span>
               </div>
               <div class="flex">
                 <span class="font-medium w-40 text-gray-500">Supplier Rating:</span>
@@ -214,7 +230,6 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
           </div>
         </div>
 
-        <!-- Product Details -->
         <div class="mb-8">
           <h3 class="font-bold text-gray-800 mb-4 pb-2 border-b flex items-center">
             <span class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-2 text-blue-600 text-xs">3</span>
@@ -231,7 +246,7 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
                   <th class="border-b border-gray-200 p-4 text-right font-semibold text-gray-600">Total</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-200">
+              <tbody>
                 <tr class="hover:bg-gray-50 transition-colors duration-150">
                   <td class="p-4">
                     <div class="flex items-center">
@@ -239,64 +254,30 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
                         <span class="text-xs text-gray-500">IMG</span>
                       </div>
                       <div>
-                        <p class="font-semibold text-gray-800">{{ productData.name }}</p>
-                        <p class="text-xs text-gray-500 mt-1">{{ productData.description }}</p>
-                        <p class="text-xs text-gray-500 mt-1">SKU: {{ productData.bar_code }}</p>
+                        <p class="font-semibold text-gray-800">{{ productDetails.name }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ productDetails.description }}</p>
+                        <p class="text-xs text-gray-500 mt-1">SKU: {{ productDetails.bar_code }}</p>
                       </div>
                     </div>
                   </td>
                   <td class="p-4">
                     <div class="space-y-1 text-sm">
-                      <p><span class="font-medium text-gray-600">Brand:</span> {{ productData.brand_name }}</p>
-                      <p><span class="font-medium text-gray-600">Size:</span> {{ productData.size }}</p>
-                      <p><span class="font-medium text-gray-600">Color:</span> {{ productData.color }}</p>
-                      <p class="flex items-center">
-                        <span class="font-medium text-gray-600 mr-1">Quality Check:</span>
-                        <CheckCircleIcon class="h-4 w-4 text-green-500" />
-                        <span class="text-green-500 text-xs ml-1">Passed</span>
-                      </p>
+                      <p><span class="font-medium text-gray-600">Brand:</span> {{ productDetails.brand_name }}</p>
+                      <p><span class="font-medium text-gray-600">Size:</span> {{ productDetails.size }}</p>
+                      <p><span class="font-medium text-gray-600">Color:</span> {{ productDetails.color }}</p>
                     </div>
                   </td>
-                  <td class="p-4 text-center font-semibold text-gray-800">1</td>
+                  <td class="p-4 text-center font-semibold text-gray-800">{{ productDetails.quantity }}</td>
+                  <td class="p-4 text-right font-semibold text-gray-800">Rs. {{ Number(productDetails.price).toFixed(2) }}</td>
                   <td class="p-4 text-right font-semibold text-gray-800">
-                    Rs. {{ Number(productData.price).toFixed(2) }}
-                  </td>
-                  <td class="p-4 text-right font-semibold text-gray-800">
-                    Rs. {{ Number(productData.price).toFixed(2) }}
+                    Rs. {{ (Number(productDetails.price) * Number(productDetails.quantity)).toFixed(2) }}
                   </td>
                 </tr>
               </tbody>
-              <tfoot>
-                <tr class="bg-gray-50">
-                  <td colspan="3" class="p-4 text-right font-medium text-gray-600">Subtotal:</td>
-                  <td colspan="2" class="p-4 text-right font-semibold text-gray-800">
-                    Rs. {{ Number(productData.price).toFixed(2) }}
-                  </td>
-                </tr>
-                <tr class="bg-gray-50">
-                  <td colspan="3" class="p-4 text-right font-medium text-gray-600">Tax (0%):</td>
-                  <td colspan="2" class="p-4 text-right font-semibold text-gray-800">
-                    Rs. 0.00
-                  </td>
-                </tr>
-                <tr class="bg-gray-50">
-                  <td colspan="3" class="p-4 text-right font-medium text-gray-600">Shipping:</td>
-                  <td colspan="2" class="p-4 text-right font-semibold text-gray-800">
-                    Rs. 0.00
-                  </td>
-                </tr>
-                <tr class="bg-blue-50">
-                  <td colspan="3" class="p-4 text-right font-bold text-gray-800">Total:</td>
-                  <td colspan="2" class="p-4 text-right font-bold text-blue-700 text-lg">
-                    Rs. {{ Number(productData.price).toFixed(2) }}
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </div>
 
-        <!-- Notes Section -->
         <div class="mb-8">
           <h3 class="font-bold text-gray-800 mb-3 pb-2 border-b flex items-center">
             <span class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-2 text-blue-600 text-xs">4</span>
@@ -307,7 +288,6 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
           </div>
         </div>
 
-        <!-- Quality Control -->
         <div class="mb-8">
           <h3 class="font-bold text-gray-800 mb-3 pb-2 border-b flex items-center">
             <span class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-2 text-blue-600 text-xs">5</span>
@@ -338,7 +318,6 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
           </div>
         </div>
 
-        <!-- Signatures -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
           <div class="border-t border-gray-200 pt-4">
             <p class="text-center text-sm font-medium text-gray-600 mb-8">Received By</p>
@@ -360,7 +339,6 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
           </div>
         </div>
 
-        <!-- Terms and Conditions -->
         <div class="mt-12 pt-4 border-t border-gray-200">
           <h3 class="text-sm font-semibold text-gray-700 mb-2">Terms & Conditions:</h3>
           <ul class="text-xs text-gray-600 space-y-1 list-disc pl-5">
@@ -371,7 +349,6 @@ const orderRef = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
           </ul>
         </div>
 
-        <!-- Footer -->
         <div class="mt-8 pt-4 border-t border-gray-200 text-center">
           <div class="flex justify-center items-center mb-2">
             <div class="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center text-white mr-2">

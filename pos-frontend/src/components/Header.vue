@@ -25,7 +25,7 @@ const userProfile = ref({
     name: '',
     email: '',
     role: '',
-    location: 'Colombo, Sri Lanka', // Default location
+    location: 'Colombo, Sri Lanka', 
     phone: '',
     status: 'Active'
 })
@@ -47,7 +47,6 @@ const loadUserProfile = () => {
 const handleSignOut = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
-    // Redirect to login page
     window.location.href = '/login'
 }
 
@@ -60,7 +59,7 @@ const fetchLowStockItems = async () => {
         const items = response.data.map(item => ({
             id: `low-stock-${item.product_id}`,
             title: 'Low Stock Alert',
-            message: `${item.product_name} is running low`,
+            message: `${item.product_name} is running low (${item.quantity} units remaining)`,
             details: {
                 supplierId: item.supplier_id,
                 supplierName: item.supplier_name,
@@ -76,6 +75,14 @@ const fetchLowStockItems = async () => {
             read: false,
             type: 'low-stock'
         }))
+        
+        items.sort((a, b) => {
+            if (a.severity === b.severity) {
+                return a.details.quantity - b.details.quantity;
+            }
+            return a.severity === 'critical' ? -1 : 1;
+        });
+        
         notifications.value = [...items, ...notifications.value]
     } catch (error) {
         console.error('Failed to fetch low stock items:', error)
@@ -174,10 +181,8 @@ const saveChanges = async () => {
 
   isSaving.value = true
   try {
-    // Update the user profile through API
     await connection.put('/user/profile', editedProfile.value)
     userProfile.value = { ...editedProfile.value }
-    // Update localStorage
     const userData = JSON.parse(localStorage.getItem('user'))
     localStorage.setItem('user', JSON.stringify({
         ...userData,
@@ -303,10 +308,8 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
                                                 </div>
                                                 <p class="text-sm text-gray-300">{{ notification.message }}</p>
                                                 
-                                                <!-- Detailed Information for Low Stock -->
                                                 <div v-if="notification.type === 'low-stock'" 
                                                     class="mt-3 bg-gray-900/50 rounded-xl overflow-hidden border border-gray-700/50">
-                                                    <!-- Status Header -->
                                                     <div class="px-4 py-2 bg-gray-800/50 border-b border-gray-700/50 flex items-center justify-between">
                                                         <div class="flex items-center gap-2">
                                                             <div class="w-2 h-2 rounded-full animate-pulse"
@@ -326,7 +329,6 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
                                                         <span class="text-xs text-gray-500">ID: #{{ notification.details.productId }}</span>
                                                     </div>
 
-                                                    <!-- Content -->
                                                     <div class="p-4">
                                                         <div class="flex items-start justify-between mb-3">
                                                             <div>
@@ -343,7 +345,6 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
                                                             </span>
                                                         </div>
 
-                                                        <!-- Stock Info -->
                                                         <div class="flex items-center gap-4 p-3 bg-gray-800/50 rounded-lg mb-3">
                                                             <div class="flex-1">
                                                                 <span class="text-xs text-gray-400 block mb-1">Current Stock</span>
@@ -363,7 +364,6 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
                                                             </div>
                                                         </div>
 
-                                                        <!-- Contact Info -->
                                                         <div class="flex items-center gap-2 mb-4">
                                                             <a :href="'mailto:' + notification.details.supplierEmail" 
                                                                 class="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors text-xs">
@@ -376,7 +376,6 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
                                                             <span class="text-xs text-gray-500">{{ notification.details.supplierEmail }}</span>
                                                         </div>
 
-                                                        <!-- Action Buttons - Single set of buttons -->
                                                         <div class="flex items-center justify-between gap-2 mt-4">
                                                             <div class="flex items-center gap-2 flex-1">
                                                                 <a :href="'mailto:' + notification.details.supplierEmail" 
@@ -450,14 +449,11 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
 
                         <div v-if="showProfilePopup"
                             class="absolute right-0 top-14 w-[420px] bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 rounded-xl shadow-2xl z-50 border border-blue-900/30 overflow-hidden">
-                            <!-- Profile Header -->
                             <div class="relative p-6">
-                                <!-- Background Gradient Effect -->
                                 <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-cyan-500/10 opacity-50"></div>
                                 
                                 <div class="relative flex items-start justify-between">
                                     <div class="flex items-start gap-4">
-                                        <!-- Avatar Section with Glow Effect -->
                                         <div class="relative group">
                                             <div class="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl opacity-0 group-hover:opacity-20 transition-all duration-300"></div>
                                             <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl opacity-20 blur group-hover:opacity-30 transition-all duration-300"></div>
@@ -466,14 +462,12 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
                                             <span class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full ring-2 ring-gray-900"></span>
                                         </div>
 
-                                        <!-- User Info -->
                                         <div class="flex-1 min-w-0">
                                             <div>
                                                 <h3 class="text-xl font-bold text-white">{{ userProfile.name }}</h3>
                                                 <p class="text-sm text-gray-300/80">{{ userProfile.email }}</p>
                                             </div>
 
-                                            <!-- Badges -->
                                             <div class="flex gap-2 mt-3">
                                                 <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-300 border border-blue-500/20">
                                                     {{ userProfile.role }}
@@ -485,7 +479,6 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
                                             </div>
                                         </div>
                                     
-                                        <!-- Moved close button to top-right -->
                                         <button @click="toggleProfile" 
                                             class="absolute top-0 right-0 p-1.5 hover:bg-white/5 rounded-lg transition-colors">
                                             <XMarkIcon class="w-5 h-5 text-gray-400 hover:text-white" />
@@ -494,10 +487,8 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
                                 </div>
                             </div>
 
-                            <!-- Profile Content -->
                             <div class="p-6 space-y-6 bg-gradient-to-b from-gray-800/50 to-gray-900/50 border-t border-white/5">
                                 <div class="space-y-4">
-                                    <!-- Info Sections with Gradient Borders -->
                                     <div class="relative p-4 rounded-lg bg-gray-800/50 overflow-hidden group transition-all duration-300 hover:bg-gray-800/70">
                                         <div class="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                         <div class="relative">
@@ -515,7 +506,6 @@ const unreadCount = computed(() => notifications.value.filter(n => !n.read).leng
                                         </div>
                                     </div>
 
-                                    <!-- Status Section with Interactive Elements -->
                                     <div class="relative p-4 rounded-lg bg-gray-800/50 overflow-hidden group transition-all duration-300 hover:bg-gray-800/70">
                                         <div class="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                         <div class="relative">
