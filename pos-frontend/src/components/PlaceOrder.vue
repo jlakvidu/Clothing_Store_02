@@ -416,16 +416,27 @@ const fetchCustomers = async () => {
 
 const isAdmin = ref(false)
 
-const getCategoryIcon = (name) => {
-  return Box 
+const getCategoryIcon = (category) => {
+  const iconMap = {
+    'Men': Box,
+    'Women': Box,
+    'Kids': Box,
+    'Accessories': Tag,
+    'Sportswear': Box,
+    'Footwear': Box,
+    'Traditional': Box,
+    'Casual': Box,
+    'Formal': Box
+  }
+  return iconMap[category] || Box
 }
 
-const getCategoryName = (name) => {
-  return 'Clothing' 
+const getCategoryName = (category) => {
+  return category || 'Uncategorized'
 }
 
-const mapProductToCategory = (name) => {
-  return 'Clothing' 
+const mapProductToCategory = (category) => {
+  return category
 }
 
 onMounted(async () => {
@@ -540,8 +551,8 @@ onMounted(async () => {
                 <div class="p-4 pl-5">
                   <div class="flex items-center justify-between mb-3">
                     <div class="bg-gray-700/50 text-gray-300 text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                      <component :is="getCategoryIcon(mapProductToCategory(product.name.toLowerCase()))" class="w-3 h-3" />
-                      <span>{{ getCategoryName(mapProductToCategory(product.name.toLowerCase())) }}</span>
+                      <component :is="getCategoryIcon(product.category)" class="w-3 h-3" />
+                      <span>{{ getCategoryName(product.category) }}</span>
                     </div>
                     
                     <div :class="[
