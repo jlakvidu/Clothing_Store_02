@@ -13,21 +13,18 @@ class Product extends Model
         'seller_price',
         'profit',
         'discount',
-        'tax',
         'size',
         'color',
+        'category',
         'description',
-        'bar_code',
         'brand_name',
-        'inventory_id',
+        'quantity',
+        'location',
+        'status',
+        'added_stock_amount',
         'supplier_id',
         'admin_id'
     ];
-
-    public function inventory(): BelongsTo
-    {
-        return $this->belongsTo(Inventory::class, 'inventory_id');
-    }
 
     public function admin(): BelongsTo
     {

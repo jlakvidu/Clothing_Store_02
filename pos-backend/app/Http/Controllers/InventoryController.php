@@ -42,7 +42,7 @@ class InventoryController extends Controller
             return response()->json($formattedInventories);
         } catch (Exception $e) {
             return response()->json([
-                'error' => 'Failed to retrieve inventory', 
+                'error' => 'Failed to retrieve inventory',
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -61,7 +61,7 @@ class InventoryController extends Controller
             $inventory->restock_date_time = now();
             $inventory->added_stock_amount = $request->input('added_stock_amount', $inventory->quantity);
             $inventory->location = $request->input('location');
-            $inventory->status = $request->input('status'); // Use the exact status from frontend
+            $inventory->status = $request->input('status');
             $inventory->save();
             $this->updateStatus();
             return response()->json($inventory);
@@ -99,7 +99,7 @@ class InventoryController extends Controller
             $inventory->quantity = $validated['quantity'];
             $inventory->location = $validated['location'];
             $inventory->status = $validated['status'];
-            
+
             // Update restock info only if new stock is added
             if (!empty($validated['added_stock_amount']) && $validated['added_stock_amount'] > 0) {
                 $inventory->restock_date_time = $validated['restock_date_time'];
@@ -107,7 +107,7 @@ class InventoryController extends Controller
             }
 
             $inventory->save();
-            
+
             DB::commit();
             return response()->json($inventory);
         } catch (ModelNotFoundException $e) {
@@ -243,7 +243,7 @@ class InventoryController extends Controller
                 $status = $this->determineStatus($inventory->quantity);
                 $itemValue = ($inventory->product?->price ?? 0) * $inventory->quantity;
                 $itemProfit = ($inventory->product?->profit ?? 0) * $inventory->quantity;
-                
+
                 $totalValue += $itemValue;
                 $totalProfit += $itemProfit;
 

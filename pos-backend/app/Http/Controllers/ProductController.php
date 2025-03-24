@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Exception;
 use App\Models\Inventory;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -41,12 +42,14 @@ class ProductController extends Controller
                 'discount' => 'required|numeric|min:0',
                 'price' => 'required|numeric|min:0',
                 'brand_name' => 'required|string|max:255',
-                'tax' => 'required|numeric|min:0',
                 'size' => 'required|string',
-                'color' => 'required|string',
+                'color' => 'string',
+                'category' => 'required|string',
+                'added_stock_amount' => 'required|integer',
+                'location' => 'string',
+                'status' => 'required|string',
+                'quantity' => 'required|integer',
                 'description' => 'required|string',
-                'bar_code' => 'required|string|unique:products',
-                'inventory_id' => 'required|exists:inventories,id',
                 'admin_id' => 'required|exists:admins,id',
             ]);
 
@@ -54,53 +57,33 @@ class ProductController extends Controller
                 return $this->errorResponse($validator->errors(), 422);
             }
 
-            // Check if inventory exists
-            $inventory = Inventory::find($request->inventory_id);
-            if (!$inventory) {
-                return $this->errorResponse('Invalid inventory ID. Please enter a valid inventory ID.', 404);
-            }
-
-            // Check for duplicate bar code
-            if (Product::where('bar_code', $request->bar_code)->exists()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'A product with this bar code already exists'
-                ], 409);
-            }
-
             DB::beginTransaction();
 
-            // Calculate profit
             $profit = $request->price - $request->seller_price;
-            
-            // Create product with existing inventory ID
+
             $product = Product::create([
                 'name' => $request->name,
                 'price' => $request->price,
                 'seller_price' => $request->seller_price,
                 'profit' => $profit,
                 'discount' => $request->discount ?? 0,
-                'tax' => $request->tax,
                 'size' => $request->size,
                 'color' => $request->color,
+                'category' => $request->category,
                 'description' => $request->description,
-                'bar_code' => $request->bar_code,
                 'brand_name' => $request->brand_name,
-                'inventory_id' => $request->inventory_id,
+                'location' => $request->location,
+                'status' => $request->status,
+                'quantity' => $request->quantity,
                 'supplier_id' => $request->supplier_id,
-                'admin_id' => $request->admin_id
+                'admin_id' => $request->admin_id,
             ]);
 
-            // Create supplier product relationship
             SupplierProduct::create([
                 'product_id' => $product->id,
                 'supplier_id' => $request->supplier_id
             ]);
-
             DB::commit();
-
-            // Load the inventory relationship
-            $product->load('inventory');
 
             return $this->successResponse('Product created successfully', $product, 201);
 
@@ -119,25 +102,29 @@ class ProductController extends Controller
             }
             $validator = Validator::make($request->all(), [
                 'name' => 'sometimes|string|max:255',
-                'supplier' => 'sometimes|string|max:255',
-                'price' => 'sometimes|numeric|min:0',
+                'supplier_id' => 'sometimes|exists:suppliers,id',
                 'seller_price' => 'sometimes|numeric|min:0',
                 'discount' => 'sometimes|numeric|min:0',
+                'price' => 'sometimes|numeric|min:0',
                 'brand_name' => 'sometimes|string|max:255',
-                'tax' => 'sometimes|numeric|min:0',
                 'size' => 'sometimes|string',
                 'color' => 'sometimes|string',
+                'category' => 'sometimes|string',
                 'description' => 'sometimes|string',
-                'bar_code' => 'sometimes|string|unique:products,bar_code,' . $product->id,
-                'status' => 'sometimes|in:In Stock,Out Of Stock',
-                'inventory_id' => 'sometimes|exists:inventories,id',
+                'location' => 'sometimes|string',
+                'new_stock' => 'sometimes|numeric|min:0',
+                'status' => 'sometimes|string',
                 'admin_id' => 'sometimes|exists:admins,id',
             ]);
             if ($validator->fails()) {
                 return $this->errorResponse($validator->errors(), 422);
             }
             $profit = $request->price - $request->seller_price;
-            $product->update($validator->validated() + ['profit' => $profit]);
+            $inventory = Product::find($id);
+            $added_stock_amount = $inventory->quantity + $request->new_stock;
+            $new_stock = $request->new_stock;
+            // Log::info("Added stock amount: " . $added_stock_amount);
+            $product->update($validator->validated() + ['profit' => $profit] + ['quantity' => $added_stock_amount] + ['added_stock_amount' => $new_stock]);
             return $this->successResponse('Product updated successfully', $product);
         } catch (Exception $e) {
             return $this->errorResponse('Failed to update product', 500);
