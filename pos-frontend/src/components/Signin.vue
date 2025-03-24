@@ -463,9 +463,9 @@ const showPassword = ref(false)
       <div class="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden h-screen" style="background-color: #050A24;">
         <div class="relative z-10 flex flex-col">
           <div>
-            <h1 class="text-3xl font-bold text-white mb-8">Hardware POS System</h1>
+            <h1 class="text-3xl font-bold text-white mb-8">Layos Clothing</h1>
             <img 
-              src="@/assets/sign-page img.jpg" 
+              src="@/assets/Layos_clothing.jpg" 
               alt="POS System"
               class="w-full h-[32rem] object-cover rounded-lg mb-12"
             />
