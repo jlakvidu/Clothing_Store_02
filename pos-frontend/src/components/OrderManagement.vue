@@ -415,7 +415,7 @@ const exportToPDF = async (orders) => {
     <div style="padding: 20px; font-family: Arial, sans-serif;">
       <div style="text-align: center; margin-bottom: 30px;">
         <h1 style="color: #1e293b; margin: 0;">Order Export Report</h1>
-        <p style="color: #64748b; margin: 10px 0;">Hardware Supply Store</p>
+        <p style="color: #64748b; margin: 10px 0;">Clothing Supply Store</p>
         <p style="color: #64748b; margin: 5px 0;">Generated on ${new Date().toLocaleString()}</p>
       </div>
 

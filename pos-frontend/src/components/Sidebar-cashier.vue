@@ -141,11 +141,6 @@ const clearHoveredSection = () => {
                           currentRoute === item.route ? 'text-blue-400' : 'text-slate-400 group-hover:text-blue-400'
                         ]" />
               <span class="font-medium text-sm">{{ item.name }}</span>
-              
-              <div v-if="item.name === 'Order List'" 
-                   class="ml-auto bg-gradient-to-r from-indigo-500 to-blue-500 text-white text-xs font-medium px-2 py-0.5 rounded-full">
-                5
-              </div>
             </div>
           </div>
         </div>

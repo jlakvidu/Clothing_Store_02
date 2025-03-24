@@ -841,7 +841,7 @@ onMounted(async () => {
                   102 Railway Ave.<br>
                   Kandy, Sri Lanka<br>
                   Phone: (94) 81 123 4567<br>
-                  Email: info@hardwaresupply.com
+                  Email: info@clothingsupply.com
                 </div>
               </div>
               <div class="text-right">
@@ -927,7 +927,7 @@ onMounted(async () => {
           <div class="mt-12 pt-8 border-t border-gray-200">
             <div class="text-center text-gray-600 text-sm">
               <div class="font-medium text-gray-800 mb-2">Thank you for your business!</div>
-              <div>For any inquiries, please contact us at support@hardwaresupply.com</div>
+              <div>For any inquiries, please contact us at support@clothingsupply.com</div>
               <div class="mt-4 text-xs text-gray-500">
                 This is a computer-generated invoice and requires no signature.
               </div>
