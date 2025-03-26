@@ -21,28 +21,40 @@ class GRNNoteController extends Controller
     {
         DB::beginTransaction();
         try {
-            // Validate request
+            // Validate request with more lenient rules
             $validatedData = $request->validate([
                 'grn_number' => 'required|string|unique:grn_notes',
                 'product_id' => 'required|exists:products,id',
-                'supplier_id' => 'required|exists:suppliers,id',
-                'admin_id' => 'required|exists:admins,id',
+                'supplier_id' => 'nullable|exists:suppliers,id', // Made supplier_id optional
+                'admin_id' => 'nullable|exists:admins,id',      // Made admin_id optional
                 'price' => 'required|numeric|min:0',
                 'product_details' => 'required|array',
                 'product_details.name' => 'required|string',
-                'product_details.description' => 'required|string',
-                'product_details.brand_name' => 'required|string',
-                'product_details.size' => 'required|string',
-                'product_details.color' => 'required|string',
-                'product_details.bar_code' => 'required|string',
-                'received_date' => 'required|date'
+                'product_details.description' => 'nullable|string',
+                'product_details.brand_name' => 'nullable|string', // Made brand_name optional
+                'product_details.size' => 'nullable|string',       // Made size optional
+                'product_details.color' => 'nullable|string',      // Made color optional
+                'product_details.bar_code' => 'nullable|string',
+                'received_date' => 'required|date',
+                'previous_quantity' => 'required|integer',
+                'new_quantity' => 'required|integer',
+                'adjusted_quantity' => 'required|integer',
+                'adjustment_type' => 'required|string|in:addition,reduction'
             ]);
+
+            // Set default values for optional fields
+            $validatedData['product_details'] = array_merge([
+                'description' => '',
+                'brand_name' => '',
+                'size' => '',
+                'color' => '',
+                'bar_code' => '',
+            ], $validatedData['product_details']);
 
             // Create GRN Note
             $grnNote = GRNNote::create($validatedData);
 
             DB::commit();
-
             return response()->json([
                 'status' => 'success',
                 'message' => 'GRN Note created successfully',
@@ -51,12 +63,14 @@ class GRNNoteController extends Controller
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
+            Log::error('GRN Validation failed: ' . json_encode($e->errors()));
             return response()->json([
                 'status' => 'error',
                 'message' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('GRN Note creation failed: ' . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to create GRN Note: ' . $e->getMessage()

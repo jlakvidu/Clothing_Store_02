@@ -76,7 +76,6 @@ class SalesController extends Controller
 
                 $productIds = collect($request->get('items'))->pluck('product_id')->unique();
                 $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
-                $inventoryUpdates = [];
 
                 foreach ($request->get('items') as $item) {
                     $product = $products->get($item['product_id']);
@@ -85,13 +84,7 @@ class SalesController extends Controller
                         throw new \Exception("Product with ID {$item['product_id']} not found.");
                     }
 
-                    $inventory = $product->inventory;
-
-                    if (!$inventory) {
-                        throw new \Exception("Inventory for Product with ID {$item['product_id']} not found.");
-                    }
-
-                    if ($inventory->quantity < $item['quantity']) {
+                    if ($product->quantity < $item['quantity']) {
                         throw new \Exception('Not enough stock for product ID ' . $item['product_id']);
                     }
 
@@ -102,10 +95,19 @@ class SalesController extends Controller
                         'price' => $item['price'],
                     ]);
 
-                    $inventory->quantity -= $item['quantity'];
-                    $inventory->save();
-                    
-                    $this->updateInventoryStatus($inventory);
+                    // Update product quantity directly
+                    $product->quantity -= $item['quantity'];
+                    $product->save();
+
+                    // Update product status based on new quantity
+                    $status = 'In Stock';
+                    if ($product->quantity == 0) {
+                        $status = 'Out Of Stock';
+                    } elseif ($product->quantity < 20) {
+                        $status = 'Low Stock';
+                    }
+                    $product->status = $status;
+                    $product->save();
                 }
 
                 DB::commit();
@@ -195,7 +197,24 @@ class SalesController extends Controller
 
     public function return(Request $request, $id)
     {
-        // Return items to inventory
+        // Validate input data
+        try {
+            $request->validate([
+                'payment_type' => 'required|in:CASH,CREDIT_CARD,DEBIT_CARD',
+                'items' => 'required|array|min:1',
+                'items.*.product_id' => 'required|exists:products,id',
+                'items.*.quantity' => 'required|integer|min:1',
+                'items.*.reason' => 'required|string|min:1',
+                'status' => 'required|in:0,1',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        }
+
+        // Find the sales record
         $sales = Sales::find($id);
         if (!$sales) {
             return response()->json([
@@ -204,99 +223,81 @@ class SalesController extends Controller
             ], 404);
         }
 
-        $returnItems[] = [];
-
-        try {
-            $request->validate([
-                'cashier_id' => 'required',
-                'payment_type' => 'required',
-                'items' => 'required',
-                'status' => 'required',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $th) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $th->errors()
-            ], 422);
-        }
-
         $date = now();
-        $returnItems = [];
-        $salesReturnItems = [];
 
         DB::beginTransaction();
         try {
-            // First, get all products being returned
+            // Get all products being returned
             $productIds = collect($request->get('items'))->pluck('product_id');
-            $products = Product::with('inventory')->whereIn('id', $productIds)->get()->keyBy('id');
+            $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
 
-            // Prepare return items and update inventory
+            // Check if all products exist in the original sale
+            foreach ($request->get('items') as $item) {
+                $originalSale = Product_Sales::where('sales_id', $id)
+                    ->where('product_id', $item['product_id'])
+                    ->first();
+
+                if (!$originalSale) {
+                    throw new \Exception("Product ID {$item['product_id']} was not found in the original sale.");
+                }
+
+                if ($originalSale->quantity < $item['quantity']) {
+                    throw new \Exception("Return quantity exceeds original purchase quantity for product ID {$item['product_id']}");
+                }
+            }
+
+            // Process return items
             foreach ($request->get('items') as $item) {
                 $product = $products->get($item['product_id']);
                 
-                if (!$product || !$product->inventory) {
-                    throw new \Exception("Product or inventory not found for ID: {$item['product_id']}");
+                if (!$product) {
+                    throw new \Exception("Product not found for ID: {$item['product_id']}");
                 }
 
                 // Create return item record
-                $returnItems[] = [
+                $returnItem = ReturnItem::create([
                     'reason' => $item['reason'],
                     'quantity' => $item['quantity'],
                     'product_id' => $item['product_id'],
-                    'created_at' => $date,
-                    'updated_at' => $date
-                ];
+                ]);
 
-                // Update inventory quantity
-                $product->inventory->increment('quantity', $item['quantity']);
-                
-                // Update inventory status
-                $this->updateInventoryStatus($product->inventory);
-            }
-
-            // Insert ReturnItems in bulk
-            ReturnItem::insert($returnItems);
-
-            // Get the inserted return items
-            $insertedReturnItems = ReturnItem::latest('created_at')
-                ->take(count($returnItems))
-                ->get();
-
-            // Create SalesReturnItems records
-            foreach ($insertedReturnItems as $insertedItem) {
-                $salesReturnItems[] = [
-                    'sales_id' => $sales['id'],
-                    'return_item_id' => $insertedItem['id'],
+                // Create sales return item record
+                SalesReturnItem::create([
+                    'sales_id' => $sales->id,
+                    'return_item_id' => $returnItem->id,
                     'returned_at' => $date,
-                    'created_at' => $date,
-                    'updated_at' => $date
-                ];
-            }
+                ]);
 
-            // Insert SalesReturnItems in bulk
-            SalesReturnItem::insert($salesReturnItems);
+                // Update product quantity
+                $product->increment('quantity', $item['quantity']);
+                
+                // Update product status
+                $status = 'In Stock';
+                if ($product->quantity == 0) {
+                    $status = 'Out Of Stock';
+                } elseif ($product->quantity < 20) {
+                    $status = 'Low Stock';
+                }
+                $product->status = $status;
+                $product->save();
+            }
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Items returned and inventory updated successfully',
+                'message' => 'Items returned successfully',
                 'data' => [
-                    'returns' => $returnItems,
-                    'updated_products' => $products->map(function($product) {
-                        return [
-                            'id' => $product->id,
-                            'name' => $product->name,
-                            'new_quantity' => $product->inventory->quantity
-                        ];
-                    })
+                    'sales_id' => $sales->id,
+                    'return_date' => $date,
+                    'items' => $request->get('items')
                 ]
             ], 200);
 
-        } catch (\Throwable $th) {
+        } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'error' => 'An error occurred while processing the return',
-                'details' => $th->getMessage()
+                'error' => 'Failed to process return',
+                'message' => $e->getMessage()
             ], 500);
         }
     }
@@ -313,7 +314,7 @@ class SalesController extends Controller
         $updateData = [];
         $newItems = [];
         $deleteIds = [];
-        $inventoryUpdates = [];
+        $productUpdates = [];
         $currentTimeStamp = now();
 
         // Collect all product IDs from the new request
@@ -328,27 +329,22 @@ class SalesController extends Controller
                 throw new \Exception("Product with ID {$newItem['product_id']} not found.");
             }
 
-            $inventory = $product->inventory;
-            if (!$inventory) {
-                throw new \Exception("Inventory for Product with ID {$newItem['product_id']} not found.");
-            }
-
             // If item exists in current sales
             if (isset($product_sales[$newItem['product_id']])) {
                 $existingItem = $product_sales[$newItem['product_id']];
                 $quantityDiff = $newItem['quantity'] - $existingItem->quantity;
 
-                // Only update inventory if quantity has changed
+                // Only update product if quantity has changed
                 if ($quantityDiff !== 0) {
                     // Check if we have enough stock for an increase
-                    if ($quantityDiff > 0 && $inventory->quantity < $quantityDiff) {
+                    if ($quantityDiff > 0 && $product->quantity < $quantityDiff) {
                         throw new \Exception("Not enough stock for Product ID {$newItem['product_id']}");
                     }
 
-                    // Calculate new inventory quantity
-                    $newQuantity = $inventory->quantity - $quantityDiff;
-                    $inventoryUpdates[] = [
-                        'inventory_id' => $inventory->id,
+                    // Calculate new product quantity
+                    $newQuantity = $product->quantity - $quantityDiff;
+                    $productUpdates[] = [
+                        'product_id' => $product->id,
                         'new_quantity' => $newQuantity
                     ];
                 }
@@ -364,7 +360,7 @@ class SalesController extends Controller
                 unset($product_sales[$newItem['product_id']]);
             } else {
                 // For new items
-                if ($inventory->quantity < $newItem['quantity']) {
+                if ($product->quantity < $newItem['quantity']) {
                     throw new \Exception("Not enough stock for Product ID {$newItem['product_id']}");
                 }
 
@@ -377,10 +373,10 @@ class SalesController extends Controller
                     'updated_at' => $currentTimeStamp
                 ];
 
-                // Update inventory for new items
-                $inventoryUpdates[] = [
-                    'inventory_id' => $inventory->id,
-                    'new_quantity' => $inventory->quantity - $newItem['quantity']
+                // Update product for new items
+                $productUpdates[] = [
+                    'product_id' => $product->id,
+                    'new_quantity' => $product->quantity - $newItem['quantity']
                 ];
             }
         }
@@ -395,16 +391,16 @@ class SalesController extends Controller
             // Return stock for deleted items
             foreach ($product_sales as $deletedItem) {
                 $product = Product::find($deletedItem->product_id);
-                if ($product && $product->inventory) {
-                    $inventoryUpdates[] = [
-                        'inventory_id' => $product->inventory->id,
-                        'new_quantity' => $product->inventory->quantity + $deletedItem->quantity
+                if ($product) {
+                    $productUpdates[] = [
+                        'product_id' => $product->id,
+                        'new_quantity' => $product->quantity + $deletedItem->quantity
                     ];
                 }
             }
         }
 
-        // Apply updates
+        // Apply updates to product_sales
         foreach ($updateData as $data) {
             Product_sales::where('product_id', $data['product_id'])
                 ->where('sales_id', $data['sales_id'])
@@ -418,12 +414,22 @@ class SalesController extends Controller
             Product_sales::insert($newItems);
         }
 
-        // Update inventory quantities and status
-        foreach ($inventoryUpdates as $update) {
-            $inventory = Inventory::find($update['inventory_id']);
-            if ($inventory) {
-                $inventory->update(['quantity' => $update['new_quantity']]);
-                $this->updateInventoryStatus($inventory);
+        // Update product quantities and status
+        foreach ($productUpdates as $update) {
+            $product = Product::find($update['product_id']);
+            if ($product) {
+                $product->quantity = $update['new_quantity'];
+                
+                // Update status based on new quantity
+                if ($product->quantity == 0) {
+                    $product->status = 'Out Of Stock';
+                } elseif ($product->quantity < 20) {
+                    $product->status = 'Low Stock';
+                } else {
+                    $product->status = 'In Stock';
+                }
+                
+                $product->save();
             }
         }
     }

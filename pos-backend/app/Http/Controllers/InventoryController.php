@@ -11,38 +11,48 @@ use Illuminate\Validation\ValidationException;
 use Exception;
 use Throwable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Response;
 
 class InventoryController extends Controller
 {
     public function index()
     {
         try {
-            $inventories = Inventory::with(['product' => function($query) {
-                $query->select('id', 'inventory_id', 'name', 'price', 'brand_name', 'profit', 'seller_price');
-            }])->get();
+            $products = Product::select(
+                'id',
+                'name',
+                'quantity',
+                'location',
+                'status',
+                'added_stock_amount',
+                'price',
+                'profit',
+                'brand_name',
+                'updated_at as restock_date_time'
+            )->get();
 
-            $formattedInventories = $inventories->map(function ($inventory) {
-                $status = $this->determineStatus($inventory->quantity);
+            $formattedProducts = $products->map(function ($product) {
+                $status = $this->determineStatus($product->quantity);
                 return [
-                    'id' => $inventory->id,
-                    'quantity' => $inventory->quantity,
-                    'restock_date_time' => $inventory->restock_date_time,
-                    'added_stock_amount' => $inventory->added_stock_amount,
-                    'location' => $inventory->location,
+                    'id' => $product->id,
+                    'quantity' => $product->quantity,
+                    'restock_date_time' => $product->restock_date_time,
+                    'added_stock_amount' => $product->added_stock_amount,
+                    'location' => $product->location,
                     'status' => $status,
-                    'name' => $inventory->product ? $inventory->product->name : null,
-                    'price' => $inventory->product ? $inventory->product->price : 0,
-                    'profit' => $inventory->product ? $inventory->product->profit : 0,
-                    'brand_name' => $inventory->product ? $inventory->product->brand_name : null,
-                    'total_value' => $inventory->product ? ($inventory->quantity * $inventory->product->price) : 0,
-                    'total_profit' => $inventory->product ? ($inventory->quantity * $inventory->product->profit) : 0,
+                    'name' => $product->name,
+                    'price' => $product->price,
+                    'profit' => $product->profit,
+                    'brand_name' => $product->brand_name,
+                    'total_value' => $product->quantity * $product->price,
+                    'total_profit' => $product->quantity * $product->profit
                 ];
             });
 
-            return response()->json($formattedInventories);
+            return response()->json($formattedProducts);
         } catch (Exception $e) {
             return response()->json([
-                'error' => 'Failed to retrieve inventory', 
+                'error' => 'Failed to retrieve inventory',
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -61,7 +71,7 @@ class InventoryController extends Controller
             $inventory->restock_date_time = now();
             $inventory->added_stock_amount = $request->input('added_stock_amount', $inventory->quantity);
             $inventory->location = $request->input('location');
-            $inventory->status = $request->input('status'); // Use the exact status from frontend
+            $inventory->status = $request->input('status');
             $inventory->save();
             $this->updateStatus();
             return response()->json($inventory);
@@ -86,7 +96,7 @@ class InventoryController extends Controller
     {
         DB::beginTransaction();
         try {
-            $inventory = Inventory::findOrFail($id);
+            $product = Product::findOrFail($id);
 
             $validated = $request->validate([
                 'quantity' => 'required|numeric|min:0',
@@ -96,23 +106,43 @@ class InventoryController extends Controller
                 'restock_date_time' => 'required|date',
             ]);
 
-            $inventory->quantity = $validated['quantity'];
-            $inventory->location = $validated['location'];
-            $inventory->status = $validated['status'];
+            $product->quantity = $validated['quantity'];
+            $product->location = $validated['location'];
+            $product->status = $this->determineStatus($validated['quantity']);
+            $product->updated_at = date('Y-m-d H:i:s', strtotime($validated['restock_date_time']));
             
-            // Update restock info only if new stock is added
             if (!empty($validated['added_stock_amount']) && $validated['added_stock_amount'] > 0) {
-                $inventory->restock_date_time = $validated['restock_date_time'];
-                $inventory->added_stock_amount = $validated['added_stock_amount'];
+                $product->added_stock_amount = $validated['added_stock_amount'];
             }
 
-            $inventory->save();
-            
+            $product->save();
+
+            // Format the response data with additional details needed for GRN
+            $response = [
+                'id' => $product->id,
+                'name' => $product->name,
+                'quantity' => $product->quantity,
+                'location' => $product->location,
+                'status' => $product->status,
+                'added_stock_amount' => $product->added_stock_amount,
+                'restock_date_time' => $product->updated_at,
+                'description' => $product->description,
+                'brand_name' => $product->brand_name,
+                'size' => $product->size,
+                'color' => $product->color,
+                'category' => $product->category,
+                'price' => $product->price,
+                'supplier_id' => $product->supplier_id,
+                'admin_id' => $product->admin_id,
+                'total_value' => $product->quantity * $product->price,
+                'total_profit' => $product->quantity * $product->profit
+            ];
+
             DB::commit();
-            return response()->json($inventory);
+            return response()->json($response);
         } catch (ModelNotFoundException $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Inventory not found'], 404);
+            return response()->json(['error' => 'Product not found'], 404);
         } catch (ValidationException $e) {
             DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 422);
@@ -137,33 +167,26 @@ class InventoryController extends Controller
     public function lowStock()
     {
         try {
-            $supplierList = collect();
-            $inventories = Inventory::where('quantity', '<', 20)->get();
-            $inventoryData = $inventories->keyBy('id');
-            $products = Product::whereIn('inventory_id', $inventories->pluck('id'))->get()->keyBy('id');
-            if ($products->isNotEmpty()) {
-                $supplierProduct = SupplierProduct::whereIn('product_id', $products->keys())
-                    ->with('supplier', 'product')
-                    ->get();
-                foreach ($supplierProduct as $item) {
-                    $inventory = $inventoryData->get($item->product->inventory_id);
-                    $lowStockDetail = new LowStockDetail(
-                        $item->supplier->id,
-                        $item->product->id,
-                        $item->supplier->name,
-                        $item->supplier->email,
-                        $item->product->name,
-                        $inventory->quantity,
-                        $inventory->location,
-                        $inventory->status
-                    );
-                    $supplierList->push($lowStockDetail);
-                }
-            }
-            return response()->json($supplierList);
+            $lowStockProducts = Product::with(['supplier'])
+                ->where('quantity', '<', 20)
+                ->get()
+                ->map(function ($product) {
+                    return [
+                        'supplier_id' => $product->supplier_id,
+                        'supplier_name' => $product->supplier->name ?? 'N/A',
+                        'supplier_email' => $product->supplier->email ?? 'N/A',
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'quantity' => $product->quantity,
+                        'location' => $product->location,
+                        'status' => $this->determineStatus($product->quantity)
+                    ];
+                });
+
+            return response()->json($lowStockProducts);
         } catch (Exception | Throwable $e) {
             return response()->json([
-                'error' => 'Failed to retrieve low stock inventory',
+                'error' => 'Failed to retrieve low stock products',
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -193,21 +216,19 @@ class InventoryController extends Controller
         $inventories->map(function ($inventory) {
             if ($inventory->quantity == 0) {
                 $inventory->status = 'Out Of Stock';
-                $inventory->save();
-            } elseif ($inventory->quantity < 5) {
+            } elseif ($inventory->quantity < 20) { // Changed from 5 to 20
                 $inventory->status = 'Low Stock';
-                $inventory->save();
             } else {
                 $inventory->status = 'In Stock';
-                $inventory->save();
             }
+            $inventory->save();
         });
     }
     private function determineStatus($quantity)
     {
         if ($quantity == 0) {
             return 'Out Of Stock';
-        } elseif ($quantity < 20) {
+        } elseif ($quantity < 20) { // Already set to 20
             return 'Low Stock';
         }
         return 'In Stock';
@@ -216,62 +237,42 @@ class InventoryController extends Controller
     public function exportData()
     {
         try {
-            $inventories = Inventory::with(['product' => function($query) {
-                $query->select(
-                    'id',
-                    'inventory_id',
-                    'supplier_id',
-                    'admin_id',
-                    'name',
-                    'brand_name',
-                    'description',
-                    'bar_code',
-                    'size',
-                    'color',
-                    'price',
-                    'seller_price',
-                    'discount',
-                    'tax',
-                    'profit'
-                );
-            }])->get();
+            $products = Product::with(['supplier', 'admin'])->get();
 
             $totalValue = 0;
             $totalProfit = 0;
 
-            $formattedData = $inventories->map(function ($inventory) use (&$totalValue, &$totalProfit) {
-                $status = $this->determineStatus($inventory->quantity);
-                $itemValue = ($inventory->product?->price ?? 0) * $inventory->quantity;
-                $itemProfit = ($inventory->product?->profit ?? 0) * $inventory->quantity;
-                
+            $formattedData = $products->map(function ($product) use (&$totalValue, &$totalProfit) {
+                $status = $this->determineStatus($product->quantity);
+                $itemValue = $product->price * $product->quantity;
+                $itemProfit = $product->profit * $product->quantity;
+
                 $totalValue += $itemValue;
                 $totalProfit += $itemProfit;
 
                 return [
-                    'id' => $inventory->id,
+                    'id' => $product->id,
                     'product' => [
-                        'id' => $inventory->product?->id,
-                        'name' => $inventory->product?->name,
-                        'brand_name' => $inventory->product?->brand_name,
-                        'description' => $inventory->product?->description,
-                        'bar_code' => $inventory->product?->bar_code,
-                        'size' => $inventory->product?->size,
-                        'color' => $inventory->product?->color,
-                        'price' => $inventory->product?->price,
-                        'seller_price' => $inventory->product?->seller_price,
-                        'discount' => $inventory->product?->discount,
-                        'tax' => $inventory->product?->tax,
-                        'profit' => $inventory->product?->profit,
-                        'supplier_id' => $inventory->product?->supplier_id,
-                        'admin_id' => $inventory->product?->admin_id,
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'brand_name' => $product->brand_name,
+                        'description' => $product->description,
+                        'size' => $product->size,
+                        'color' => $product->color,
+                        'price' => $product->price,
+                        'seller_price' => $product->seller_price,
+                        'discount' => $product->discount,
+                        'profit' => $product->profit,
+                        'supplier_id' => $product->supplier_id,
+                        'admin_id' => $product->admin_id,
                     ],
-                    'quantity' => $inventory->quantity,
-                    'location' => $inventory->location,
+                    'quantity' => $product->quantity,
+                    'location' => $product->location,
                     'status' => $status,
-                    'added_stock_amount' => $inventory->added_stock_amount,
-                    'restock_date_time' => $inventory->restock_date_time,
-                    'created_at' => $inventory->created_at,
-                    'updated_at' => $inventory->updated_at,
+                    'added_stock_amount' => $product->added_stock_amount,
+                    'restock_date_time' => $product->updated_at,
+                    'created_at' => $product->created_at,
+                    'updated_at' => $product->updated_at,
                     'total_value' => $itemValue,
                     'total_profit' => $itemProfit
                 ];

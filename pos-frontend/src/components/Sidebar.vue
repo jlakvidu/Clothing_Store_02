@@ -171,7 +171,6 @@ const clearHoveredSection = () => {
               <div v-if="item.name === 'Low Stocks'" class="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full ring-2 ring-gray-900">
                 3
               </div>
-              <!-- Removed the Order List notification badge -->
             </div>
           </div>
         </div>

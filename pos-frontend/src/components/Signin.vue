@@ -7,9 +7,7 @@ import Swal from 'sweetalert2'
 
 const router = useRouter()
 
-// Animation related refs - now with more circles and varied sizes
 const circles = ref([
-  // Large circles
   { 
     x: 80, 
     y: 30, 
@@ -35,7 +33,6 @@ const circles = ref([
     scale: 1
   },
   
-  // Medium circles
   { 
     x: 70, 
     y: 60, 
@@ -61,7 +58,6 @@ const circles = ref([
     scale: 1
   },
   
-  // Small circles
   { 
     x: 40, 
     y: 35, 
@@ -87,7 +83,6 @@ const circles = ref([
     scale: 1
   },
   
-  // Tiny circles
   { 
     x: 30, 
     y: 80, 
@@ -141,28 +136,24 @@ const circles = ref([
 const animationActive = ref(true)
 const animationFrame = ref(null)
 
-// Animation setup
 onMounted(() => {
   startAnimation()
 })
 
 onUnmounted(() => {
   if (alertTimeout.value) clearTimeout(alertTimeout.value)
-  animationActive.value = false // Stop animation when component unmounts
+  animationActive.value = false
   if (animationFrame.value) cancelAnimationFrame(animationFrame.value)
 })
 
-// Random movement animation function
 const startAnimation = () => {
   const animate = () => {
     if (!animationActive.value) return
     
     circles.value.forEach((circle, index) => {
-      // Move circles
       circle.x += circle.speedX * circle.directionX
       circle.y += circle.speedY * circle.directionY
       
-      // Randomly change direction occasionally
       if (Math.random() < 0.005) {
         circle.directionX *= -1
       }
@@ -170,18 +161,15 @@ const startAnimation = () => {
         circle.directionY *= -1
       }
       
-      // Randomly change speed occasionally
       if (Math.random() < 0.01) {
         circle.speedX = 0.02 + Math.random() * 0.05
         circle.speedY = 0.02 + Math.random() * 0.05
       }
       
-      // Pulse effect
       if (Math.random() < 0.02) {
         circle.scale = 0.95 + Math.random() * 0.1
       }
       
-      // Boundary checks
       if (circle.x > 95) {
         circle.directionX = -1
       } else if (circle.x < 5) {
@@ -286,18 +274,15 @@ const handleLogin = async (event) => {
     })
 
     if (response.data.status === 'success') {
-      // Store user data and token
       localStorage.setItem('token', response.data.token)
       localStorage.setItem('user', JSON.stringify(response.data.user))
       
-      // Store admin status as string 'true' or 'false'
       localStorage.setItem('isAdmin', String(response.data['is-admin']))
       
-      // Route based on admin status
       if (response.data['is-admin']) {
-        router.push({ name: 'dashboard' }) // Admin dashboard
+        router.push({ name: 'dashboard' })
       } else {
-        router.push({ name: 'place-order' }) // Cashier dashboard
+        router.push({ name: 'place-order' }) 
       }
     }
   } catch (error) {
@@ -484,7 +469,6 @@ const showPassword = ref(false)
       </div>
 
       <div class="flex items-center justify-center w-full px-8 relative overflow-hidden">
-        <!-- Professional Animated Circles with Random Movement -->
         <div 
           v-for="(circle, index) in circles" 
           :key="index"
@@ -501,7 +485,6 @@ const showPassword = ref(false)
           }"
         ></div>
         
-        <!-- Background glow effects -->
         <div class="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
         <div class="absolute bottom-0 right-1/4 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl"></div>
         
@@ -994,7 +977,6 @@ const showPassword = ref(false)
   transform: translateX(20px);
 }
 
-/* Animation for the circles */
 @keyframes float {
   0% {
     transform: translateY(0px) translateX(0px);

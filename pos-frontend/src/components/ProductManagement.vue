@@ -19,7 +19,8 @@ import {
     FunnelIcon,
     ChevronDownIcon,
     ChevronUpIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    PhotoIcon
 } from '@heroicons/vue/24/outline'
 import Header from './Header.vue'
 import Sidebar from './Sidebar.vue'
@@ -48,13 +49,34 @@ const newProduct = ref({
     size: '',
     color: '',
     description: '',
-    bar_code: '',
     brand_name: '',
-    inventory_id: '',
     supplier_id: '',
-    admin_id: ''
+    admin_id: '',
+    category: '',
+    quantity: 0,
+    location: '',
+    status: 'In Stock',
+    added_stock_amount: 0
 })
-const editingProduct = ref({})
+const editingProduct = ref({
+    id: '',
+    name: '',
+    price: '',
+    seller_price: '',
+    discount: '',
+    size: '',
+    color: '',
+    description: '',
+    brand_name: '',
+    supplier_id: '',
+    admin_id: '',
+    category: '',
+    quantity: 0,
+    location: '',
+    status: 'In Stock',
+    added_stock_amount: 0,
+    profit: 0
+})
 const productToDelete = ref(null)
 const viewingProduct = ref(null) 
 
@@ -73,7 +95,7 @@ const showSupplierInput = ref(false)
 const showBrandInput = ref(false)
 
 const formErrors = ref({})
-const touchedFields = ref({})  // Add this new ref
+const touchedFields = ref({})  
 
 const selectedProducts = ref([])
 const uploadedFile = ref(null)
@@ -93,7 +115,6 @@ const formatCurrency = (value) => {
 const validateInput = (field, value) => {
   if (!touchedFields.value[field]) return true
   
-  // Add XSS validation
   if (typeof value === 'string' && /<script>/i.test(value)) {
     formErrors.value[field] = 'Invalid characters in field'
     return false
@@ -104,7 +125,6 @@ const validateInput = (field, value) => {
     return false
   }
 
-  // Add numeric validation for specific fields
   const numericFields = ['price', 'seller_price', 'tax', 'inventory_id', 'supplier_id', 'admin_id']
   if (numericFields.includes(field)) {
     const numValue = Number(value)
@@ -123,7 +143,6 @@ const markFieldAsTouched = (field) => {
   validateInput(field, newProduct.value[field])
 }
 
-// Only validate required fields
 const validateForm = (product) => {
   const requiredFields = ['name', 'description', 'price', 'seller_price']
   let isValid = true
@@ -153,17 +172,20 @@ const fetchProducts = async () => {
             profit: product.profit,
             seller_price: product.seller_price,
             discount: product.discount,
-            tax: product.tax,
             size: product.size,
             color: product.color,
             description: product.description,
-            bar_code: product.bar_code,
+            category: product.category,
+            quantity: product.quantity,
+            location: product.location,
+            status: product.status,
             brand_name: product.brand_name,
-            inventory_id: product.inventory_id,
+            added_stock_amount: product.added_stock_amount,
             supplier_id: product.supplier_id,
             admin_id: product.admin_id,
             created_at: product.created_at,
-            updated_at: product.updated_at
+            updated_at: product.updated_at,
+            image_url: product.image_url 
         }))
         
         if (response.data.meta) {
@@ -175,14 +197,10 @@ const fetchProducts = async () => {
         }
     } catch (error) {
         console.error('Error fetching products:', error)
-        const errorMessage = error.code === 'ECONNABORTED' 
-            ? 'Network timeout. Please try again.'
-            : 'Failed to load products'
-            
         Swal.fire({
             icon: "error",
             title: "Error!",
-            text: errorMessage,
+            text: error.response?.data?.message || 'Failed to load products',
             background: '#1e293b',
             color: '#ffffff'
         })
@@ -240,7 +258,6 @@ const resetFilters = () => {
 }
 
 const handleAddSubmit = () => {
-  // Mark all required fields as touched
   const requiredFields = ['name', 'description', 'price', 'seller_price']
   requiredFields.forEach(field => markFieldAsTouched(field))
 
@@ -271,93 +288,80 @@ const handleAddProduct = async () => {
       size: newProduct.value.size,
       color: newProduct.value.color,
       description: newProduct.value.description,
-      bar_code: newProduct.value.bar_code,
       brand_name: newProduct.value.brand_name,
-      inventory_id: parseInt(newProduct.value.inventory_id),
       supplier_id: parseInt(newProduct.value.supplier_id),
-      admin_id: parseInt(newProduct.value.admin_id)
+      admin_id: parseInt(newProduct.value.admin_id),
+      category: newProduct.value.category,
+      quantity: parseInt(newProduct.value.quantity),
+      location: newProduct.value.location,
+      status: newProduct.value.status,
+      added_stock_amount: parseInt(newProduct.value.added_stock_amount)
     }
-
-    // Save form data before submission
-    localStorage.setItem('draft_product', JSON.stringify(newProduct.value))
 
     const response = await connection.post('/products', payload)
     
-    if (!response?.data?.status) {
-      throw new Error('Invalid response format')
-    }
-
     if (response.data.status === 'success') {
-        // Fetch supplier details
-        const supplierResponse = await connection.get(`/suppliers/${newProduct.value.supplier_id}`)
-        const supplierData = supplierResponse.data
+      const newProductData = {
+        id: response.data.data.product.id,
+        name: response.data.data.product.name,
+        price: response.data.data.product.price,
+        profit: response.data.data.product.profit,
+        seller_price: response.data.data.product.seller_price,
+        discount: response.data.data.product.discount,
+        size: response.data.data.product.size,
+        color: response.data.data.product.color,
+        description: response.data.data.product.description,
+        category: response.data.data.product.category,
+        quantity: response.data.data.product.quantity,
+        location: response.data.data.product.location,
+        status: response.data.data.product.status,
+        brand_name: response.data.data.product.brand_name,
+        added_stock_amount: response.data.data.product.added_stock_amount,
+        supplier_id: response.data.data.product.supplier_id,
+        admin_id: response.data.data.product.admin_id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
 
-        const productWithSupplier = {
-            ...response.data.data,
-            supplierDetails: {
-                name: supplierData.name,
-                email: supplierData.email,
-                contact: supplierData.contact
-            }
-        }
-        
-        // Generate GRN number and save GRN
-        const generatedGRNNumber = `GRN-${new Date().getFullYear()}-${String(response.data.data.id).padStart(5, '0')}`
-        
-        // Save GRN to backend
-        const grnPayload = {
-            grn_number: generatedGRNNumber,
-            product_id: response.data.data.id,
-            supplier_id: newProduct.value.supplier_id,
-            admin_id: newProduct.value.admin_id,
-            price: newProduct.value.price,
-            product_details: {
-                name: newProduct.value.name,
-                description: newProduct.value.description,
-                brand_name: newProduct.value.brand_name,
-                size: newProduct.value.size,
-                color: newProduct.value.color,
-                bar_code: newProduct.value.bar_code
-            },
-            received_date: new Date().toISOString().split('T')[0]
-        }
+      products.value.unshift(newProductData)
+      
+      grnProduct.value = {
+        ...response.data.data.product,
+        supplierDetails: response.data.data.product.supplierDetails || {}
+      }
+      grnNumber.value = response.data.data.grn.number
+      
+      showModal.value = false
+      showGRN.value = true
 
-        await connection.post('/grn-notes', grnPayload)
-        
-        products.value.push(productWithSupplier)
-        grnNumber.value = generatedGRNNumber // Changed this line
-        grnProduct.value = productWithSupplier
-        showGRN.value = true
-        showModal.value = false
-        
-        // Reset form
-        newProduct.value = {
-            name: '',
-            price: '',
-            seller_price: '',
-            discount: '',
-            tax: '',
-            size: '',
-            color: '',
-            description: '',
-            bar_code: '',
-            brand_name: '',
-            inventory_id: '',
-            supplier_id: '',
-            admin_id: ''
-        }
+      newProduct.value = {
+        name: '',
+        price: '',
+        seller_price: '',
+        discount: '',
+        tax: '',
+        size: '',
+        color: '',
+        description: '',
+        brand_name: '',
+        supplier_id: '',
+        admin_id: '',
+        category: '',
+        quantity: 0,
+        location: '',
+        status: 'In Stock',
+        added_stock_amount: 0
+      }
 
-        Swal.fire({
-            position: "center",
-            icon: "success",
-            title: "Product Added Successfully!",
-            showConfirmButton: false,
-            timer: 1500,
-            background: '#1e293b',
-            color: '#ffffff'
-        })
-    } else {
-        throw new Error(response.data.message || 'Failed to add product')
+      Swal.fire({
+        position: "center",
+        icon: "success",
+        title: "Product Added Successfully!",
+        showConfirmButton: false,
+        timer: 1500,
+        background: '#1e293b',
+        color: '#ffffff'
+      })
     }
   } catch (error) {
     if (error.response?.status === 429) {
@@ -374,9 +378,7 @@ const handleAddProduct = async () => {
     let errorMessage = 'Failed to add product'
     
     if (error.response?.data?.message) {
-        // Handle validation errors from Laravel
         if (typeof error.response.data.message === 'object') {
-            // If message contains multiple validation errors, join them
             errorMessage = Object.values(error.response.data.message).flat().join('\n')
         } else {
             errorMessage = error.response.data.message
@@ -400,7 +402,6 @@ const handleAddProduct = async () => {
 }
 
 const openEditModal = (product) => {
-    // Make a deep copy and ensure all required fields are included
     editingProduct.value = {
         id: product.id,
         name: product.name,
@@ -408,15 +409,17 @@ const openEditModal = (product) => {
         profit: product.profit,
         seller_price: product.seller_price,
         discount: product.discount,
-        tax: product.tax,
         size: product.size,
         color: product.color,
         description: product.description,
-        bar_code: product.bar_code,
         brand_name: product.brand_name,
-        inventory_id: product.inventory_id,
         supplier_id: product.supplier_id,
-        admin_id: product.admin_id
+        admin_id: product.admin_id,
+        category: product.category,
+        quantity: product.quantity,
+        location: product.location,
+        status: product.status,
+        added_stock_amount: product.added_stock_amount
     }
     showEditModal.value = true
 }
@@ -429,30 +432,27 @@ const handleEditProduct = async () => {
         const payload = {
             name: editingProduct.value.name,
             price: parseFloat(editingProduct.value.price),
-            profit: parseFloat(editingProduct.value.profit),
             seller_price: parseFloat(editingProduct.value.seller_price),
-            discount: parseFloat(editingProduct.value.discount),
-            tax: parseFloat(editingProduct.value.tax),
+            discount: parseFloat(editingProduct.value.discount || 0),
             size: editingProduct.value.size,
             color: editingProduct.value.color,
             description: editingProduct.value.description,
-            bar_code: editingProduct.value.bar_code,
+            category: editingProduct.value.category,
+            quantity: parseInt(editingProduct.value.quantity),
+            location: editingProduct.value.location,
+            status: editingProduct.value.status,
             brand_name: editingProduct.value.brand_name,
-            inventory_id: parseInt(editingProduct.value.inventory_id),
             supplier_id: parseInt(editingProduct.value.supplier_id),
-            admin_id: parseInt(editingProduct.value.admin_id)
+            admin_id: parseInt(editingProduct.value.admin_id),
+            added_stock_amount: parseInt(editingProduct.value.added_stock_amount || 0)
         }
 
         const response = await connection.put(`/products/${editingProduct.value.id}`, payload)
 
         if (response.data.status === 'success') {
-            // Update the local product list with the updated data
             const index = products.value.findIndex(p => p.id === editingProduct.value.id)
             if (index !== -1) {
-                products.value[index] = {
-                    ...products.value[index],
-                    ...response.data.data
-                }
+                products.value[index] = response.data.data
             }
 
             showEditModal.value = false
@@ -671,12 +671,78 @@ const handleBatchDelete = async () => {
   }
 }
 
+const showImageUploadModal = ref(false)
+const selectedProductId = ref(null)
+const selectedFile = ref(null)
+const imagePreview = ref(null)
+const isUploadingImage = ref(false)
+
+const handleFileChange = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+        selectedFile.value = file
+        const reader = new FileReader()
+        reader.onload = (e) => {
+            imagePreview.value = e.target.result
+        }
+        reader.readAsDataURL(file)
+    }
+}
+
+const openImageUploadModal = (productId) => {
+    selectedProductId.value = productId
+    selectedFile.value = null
+    imagePreview.value = null
+    showImageUploadModal.value = true
+}
+
+const uploadProductImage = async () => {
+    if (!selectedFile.value) return
+    isUploadingImage.value = true
+    
+    try {
+        const formData = new FormData()
+        formData.append('image', selectedFile.value)
+        
+        const response = await connection.post(`/products/${selectedProductId.value}/image`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+
+        if (response.data.status === 'success') {
+            showImageUploadModal.value = false
+            Swal.fire({
+                position: "center",
+                icon: "success",
+                title: "Image uploaded successfully!",
+                showConfirmButton: false,
+                timer: 1500,
+                background: '#1e293b',
+                color: '#ffffff'
+            })
+            console.log('Image URL:', response.data.data.url)
+            await fetchProducts()
+        }
+    } catch (error) {
+        console.error('Error uploading image:', error)
+        Swal.fire({
+            icon: "error",
+            title: "Error!",
+            text: error.response?.data?.message || "Failed to upload image",
+            background: '#1e293b',
+            color: '#ffffff'
+        })
+    } finally {
+        isUploadingImage.value = false
+    }
+}
+
 onMounted(() => {
     fetchProducts()
-    restoreFormData() // Restore any saved form data
+    restoreFormData() 
 })
 
-// Add cleanup on unmount
 onUnmounted(() => {
   products.value = []
   selectedProducts.value = []
@@ -732,6 +798,9 @@ onUnmounted(() => {
                                             <component :is="getSortIcon('id')" class="w-4 h-4" />
                                         </div>
                                     </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                        Image
+                                    </th>
                                     <th
                                         @click="toggleSort('name')"
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600/50 transition-colors"
@@ -739,6 +808,24 @@ onUnmounted(() => {
                                         <div class="flex items-center space-x-1">
                                             <span>Name</span>
                                             <component :is="getSortIcon('name')" class="w-4 h-4" />
+                                        </div>
+                                    </th>
+                                    <th
+                                        @click="toggleSort('category')"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600/50 transition-colors"
+                                    >
+                                        <div class="flex items-center space-x-1">
+                                            <span>Category</span>
+                                            <component :is="getSortIcon('category')" class="w-4 h-4" />
+                                        </div>
+                                    </th>
+                                    <th
+                                        @click="toggleSort('quantity')"
+                                        class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600/50 transition-colors"
+                                    >
+                                        <div class="flex items-center space-x-1">
+                                            <span>Quantity</span>
+                                            <component :is="getSortIcon('quantity')" class="w-4 h-4" />
                                         </div>
                                     </th>
                                     <th
@@ -760,39 +847,12 @@ onUnmounted(() => {
                                         </div>
                                     </th>
                                     <th
-                                        @click="toggleSort('profit')"
+                                        @click="toggleSort('status')"
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600/50 transition-colors"
                                     >
                                         <div class="flex items-center space-x-1">
-                                            <span>Profit</span>
-                                            <component :is="getSortIcon('profit')" class="w-4 h-4" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        @click="toggleSort('brand_name')"
-                                        class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600/50 transition-colors"
-                                    >
-                                        <div class="flex items-center space-x-1">
-                                            <span>Brand</span>
-                                            <component :is="getSortIcon('brand_name')" class="w-4 h-4" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        @click="toggleSort('inventory_id')"
-                                        class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600/50 transition-colors"
-                                    >
-                                        <div class="flex items-center space-x-1">
-                                            <span>Inventory ID</span>
-                                            <component :is="getSortIcon('inventory_id')" class="w-4 h-4" />
-                                        </div>
-                                    </th>
-                                    <th
-                                        @click="toggleSort('supplier_id')"
-                                        class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-600/50 transition-colors"
-                                    >
-                                        <div class="flex items-center space-x-1">
-                                            <span>Supplier ID</span>
-                                            <component :is="getSortIcon('supplier_id')" class="w-4 h-4" />
+                                            <span>Status</span>
+                                            <component :is="getSortIcon('status')" class="w-4 h-4" />
                                         </div>
                                     </th>
                                     <th
@@ -838,29 +898,39 @@ onUnmounted(() => {
                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                                             <span class="font-mono bg-gray-700/50 px-2 py-1 rounded text-gray-300">{{ product.id }}</span>
                                         </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-200">
+                                            <div v-if="product.image_url" class="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-700 hover:border-blue-500 transition-colors duration-300">
+                                                <img 
+                                                    :src="product.image_url" 
+                                                    :alt="product.name"
+                                                    class="w-full h-full object-cover"
+                                                    @error="(e) => {
+                                                        e.target.src = '';
+                                                        console.error('Failed to load image:', product.image_url);
+                                                    }"
+                                                >
+                                            </div>
+                                            <div v-else class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                                                {{ product.name.charAt(0).toUpperCase() }}
+                                            </div>
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm">{{ product.name }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            ${{ Number(product.price).toFixed(2) }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            ${{ Number(product.seller_price).toFixed(2) }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            ${{ Number(product.profit).toFixed(2) }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span class="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-                                                {{ product.brand_name }}
+                                            <span class="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                                {{ product.category }}
                                             </span>
                                         </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">{{ product.quantity }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">${{ Number(product.price).toFixed(2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">${{ Number(product.seller_price).toFixed(2) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span class="font-mono bg-gray-700/50 px-2 py-1 rounded text-gray-300">
-                                                {{ product.inventory_id }}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span class="font-mono bg-gray-700/50 px-2 py-1 rounded text-gray-300">
-                                                {{ product.supplier_id }}
+                                            <span :class="{
+                                                'px-2 py-1 text-xs rounded-full': true,
+                                                'bg-green-500/20 text-green-300 border border-green-500/30': product.status === 'In Stock',
+                                                'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30': product.status === 'Low Stock',
+                                                'bg-red-500/20 text-red-300 border border-red-500/30': product.status === 'Out of Stock'
+                                            }">
+                                                {{ product.status }}
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
@@ -885,6 +955,13 @@ onUnmounted(() => {
                                                     title="Delete Product"
                                                 >
                                                     <TrashIcon class="w-5 h-5" />
+                                                </button>
+                                                <button 
+                                                    @click="openImageUploadModal(product.id)"
+                                                    class="text-blue-400 hover:text-blue-300 p-1.5 hover:bg-gray-700 rounded-full transition-colors"
+                                                    title="Upload Image"
+                                                >
+                                                    <PhotoIcon class="w-5 h-5" />
                                                 </button>
                                             </div>
                                         </td>
@@ -977,22 +1054,6 @@ onUnmounted(() => {
                                 >
                                 <span v-if="touchedFields.price && formErrors.price" class="text-red-500 text-xs mt-1">{{ formErrors.price }}</span>
                             </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Tax</label>
-                                <input 
-                                    v-model="newProduct.tax" 
-                                    @blur="markFieldAsTouched('tax')"
-                                    type="number"
-                                    step="0.01"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
-                                    :class="{
-                                        'border-red-500': touchedFields.tax && formErrors.tax
-                                    }"
-                                    required
-                                >
-                                <span v-if="touchedFields.tax && formErrors.tax" class="text-red-500 text-xs mt-1">{{ formErrors.tax }}</span>
-                            </div>
                         </div>
 
                         <div class="bg-gray-750 p-4 rounded-lg space-y-4">
@@ -1030,23 +1091,67 @@ onUnmounted(() => {
                         </div>
 
                         <div class="md:col-span-2 bg-gray-750 p-4 rounded-lg space-y-4">
-                            <h3 class="text-sm font-medium text-gray-300 uppercase tracking-wider mb-3">Additional Information</h3>
+                            <h3 class="text-sm font-medium text-gray-300 uppercase tracking-wider mb-3">Stock Information</h3>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Bar Code</label>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Category</label>
                                 <input 
-                                    v-model="newProduct.bar_code" 
-                                    @blur="markFieldAsTouched('bar_code')"
+                                    v-model="newProduct.category" 
                                     type="text"
                                     class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
-                                    :class="{
-                                        'border-red-500': touchedFields.bar_code && formErrors.bar_code
-                                    }"
                                     required
                                 >
-                                <span v-if="touchedFields.bar_code && formErrors.bar_code" class="text-red-500 text-xs mt-1">{{ formErrors.bar_code }}</span>
                             </div>
 
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Quantity</label>
+                                <input 
+                                    v-model="newProduct.quantity" 
+                                    type="number"
+                                    min="0"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    required
+                                >
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Location</label>
+                                <input 
+                                    v-model="newProduct.location" 
+                                    type="text"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    required
+                                >
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Status</label>
+                                <select 
+                                    v-model="newProduct.status"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    required
+                                >
+                                    <option value="In Stock">In Stock</option>
+                                    <option value="Low Stock">Low Stock</option>
+                                    <option value="Out of Stock">Out of Stock</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Added Stock Amount</label>
+                                <input 
+                                    v-model="newProduct.added_stock_amount" 
+                                    type="number"
+                                    min="0"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    required
+                                >
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2 bg-gray-750 p-4 rounded-lg space-y-4">
+                            <h3 class="text-sm font-medium text-gray-300 uppercase tracking-wider mb-3">Additional Information</h3>
+                            
                             <div>
                                 <label class="block text-sm font-medium text-gray-300 mb-1">Brand Name</label>
                                 <input 
@@ -1060,21 +1165,6 @@ onUnmounted(() => {
                                     required
                                 >
                                 <span v-if="touchedFields.brand_name && formErrors.brand_name" class="text-red-500 text-xs mt-1">{{ formErrors.brand_name }}</span>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Inventory ID</label>
-                                <input 
-                                    v-model="newProduct.inventory_id" 
-                                    @blur="markFieldAsTouched('inventory_id')"
-                                    type="number"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
-                                    :class="{
-                                        'border-red-500': touchedFields.inventory_id && formErrors.inventory_id
-                                    }"
-                                    required
-                                >
-                                <span v-if="touchedFields.inventory_id && formErrors.inventory_id" class="text-red-500 text-xs mt-1">{{ formErrors.inventory_id }}</span>
                             </div>
 
                             <div>
@@ -1177,10 +1267,10 @@ onUnmounted(() => {
                 class="bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg w-full max-w-3xl p-6 shadow-xl border border-gray-700/50 max-h-[90vh] overflow-auto"
                 @click.stop
             >
-                <div class="flex justify-between items-center mb-6 border-b border-gray-700/50 pb-4">
+                <div class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
                     <div class="flex items-center space-x-2">
                         <PencilIcon class="w-6 h-6 text-purple-400" />
-                        <h2 class="text-xl font-semibold text-purple-400">Edit Product</h2>
+                        <h2 class="text-xl font-semibold">Edit Product</h2>
                     </div>
                     <button 
                         @click="showEditModal = false"
@@ -1196,20 +1286,12 @@ onUnmounted(() => {
                             <h3 class="text-sm font-medium text-gray-300 uppercase tracking-wider mb-3">Basic Information</h3>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Product ID</label>
-                                <input 
-                                    v-model="editingProduct.id" 
-                                    type="text"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg border border-gray-600 transition-all opacity-70"
-                                    disabled
-                                >
-                            </div>
-                            <div>
                                 <label class="block text-sm font-medium text-gray-300 mb-1">Product Name</label>
                                 <input 
                                     v-model="editingProduct.name" 
+                                    @blur="markFieldAsTouched('name')"
                                     type="text"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                 >
                             </div>
@@ -1218,7 +1300,8 @@ onUnmounted(() => {
                                 <label class="block text-sm font-medium text-gray-300 mb-1">Description</label>
                                 <textarea 
                                     v-model="editingProduct.description"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    @blur="markFieldAsTouched('description')"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                     rows="3"
                                 ></textarea>
@@ -1234,29 +1317,7 @@ onUnmounted(() => {
                                     v-model="editingProduct.price" 
                                     type="number"
                                     step="0.01"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
-                                    required
-                                >
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Profit</label>
-                                <input 
-                                    v-model="editingProduct.profit" 
-                                    type="number"
-                                    step="0.01"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
-                                    required
-                                >
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Tax</label>
-                                <input 
-                                    v-model="editingProduct.tax" 
-                                    type="number"
-                                    step="0.01"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                 >
                             </div>
@@ -1270,7 +1331,7 @@ onUnmounted(() => {
                                 <input 
                                     v-model="editingProduct.size" 
                                     type="text"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                 >
                             </div>
@@ -1280,7 +1341,66 @@ onUnmounted(() => {
                                 <input 
                                     v-model="editingProduct.color" 
                                     type="text"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    required
+                                >
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2 bg-gray-750 p-4 rounded-lg space-y-4">
+                            <h3 class="text-sm font-medium text-gray-300 uppercase tracking-wider mb-3">Stock Information</h3>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Category</label>
+                                <input 
+                                    v-model="editingProduct.category" 
+                                    type="text"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    required
+                                >
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Quantity</label>
+                                <input 
+                                    v-model="editingProduct.quantity" 
+                                    type="number"
+                                    min="0"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    required
+                                >
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Location</label>
+                                <input 
+                                    v-model="editingProduct.location" 
+                                    type="text"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    required
+                                >
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Status</label>
+                                <select 
+                                    v-model="editingProduct.status"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    required
+                                >
+                                    <option value="In Stock">In Stock</option>
+                                    <option value="Low Stock">Low Stock</option>
+                                    <option value="Out of Stock">Out of Stock</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Added Stock Amount</label>
+                                <input 
+                                    v-model="editingProduct.added_stock_amount" 
+                                    type="number"
+                                    min="0"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                 >
                             </div>
@@ -1290,31 +1410,11 @@ onUnmounted(() => {
                             <h3 class="text-sm font-medium text-gray-300 uppercase tracking-wider mb-3">Additional Information</h3>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Bar Code</label>
-                                <input 
-                                    v-model="editingProduct.bar_code" 
-                                    type="text"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
-                                    required
-                                >
-                            </div>
-
-                            <div>
                                 <label class="block text-sm font-medium text-gray-300 mb-1">Brand Name</label>
                                 <input 
                                     v-model="editingProduct.brand_name" 
                                     type="text"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
-                                    required
-                                >
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-1">Inventory ID</label>
-                                <input 
-                                    v-model="editingProduct.inventory_id" 
-                                    type="number"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                 >
                             </div>
@@ -1325,7 +1425,7 @@ onUnmounted(() => {
                                     v-model="editingProduct.seller_price" 
                                     type="number"
                                     step="0.01"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                 >
                             </div>
@@ -1336,7 +1436,7 @@ onUnmounted(() => {
                                     v-model="editingProduct.discount" 
                                     type="number"
                                     step="0.01"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                 >
                             </div>
@@ -1346,7 +1446,7 @@ onUnmounted(() => {
                                 <input 
                                     v-model="editingProduct.supplier_id" 
                                     type="number"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                 >
                             </div>
@@ -1356,7 +1456,7 @@ onUnmounted(() => {
                                 <input 
                                     v-model="editingProduct.admin_id" 
                                     type="number"
-                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-600"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
                                     required
                                 >
                             </div>
@@ -1417,30 +1517,42 @@ onUnmounted(() => {
                     </button>
                 </div>
 
-                <div class="space-y-4 grid grid-cols-1 md:grid-cols-2 gap-4" v-if="viewingProduct">
-                    <!-- Basic Information -->
-                    <div class="md:col-span-2">
-                        <h3 class="text-sm font-medium text-gray-300 uppercase mb-3">Basic Information</h3>
-                        <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700/30 space-y-4">
+                <div class="space-y-6" v-if="viewingProduct">
+                    <div class="flex justify-center mb-6">
+                        <div v-if="viewingProduct.image_url" class="w-32 h-32 rounded-full overflow-hidden border-4 border-cyan-500/30">
+                            <img 
+                                :src="viewingProduct.image_url" 
+                                :alt="viewingProduct.name"
+                                class="w-full h-full object-cover"
+                                @error="(e) => e.target.src = ''"
+                            >
+                        </div>
+                        <div v-else class="w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold border-4 border-cyan-500/30">
+                            {{ viewingProduct.name?.charAt(0).toUpperCase() }}
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700/30 space-y-4">
+                        <h3 class="text-sm font-medium text-gray-300 uppercase">Basic Information</h3>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <span class="text-sm font-medium text-cyan-400">Product ID</span>
+                                <span class="text-sm font-medium text-cyan-400">ID</span>
                                 <p class="text-white font-mono bg-gray-700/50 px-2 py-1 rounded mt-1">{{ viewingProduct.id }}</p>
                             </div>
                             <div>
                                 <span class="text-sm font-medium text-cyan-400">Name</span>
                                 <p class="text-white mt-1">{{ viewingProduct.name }}</p>
                             </div>
-                            <div>
+                            <div class="col-span-2">
                                 <span class="text-sm font-medium text-cyan-400">Description</span>
                                 <p class="text-white mt-1">{{ viewingProduct.description }}</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Pricing Information -->
-                    <div class="space-y-4">
-                        <h3 class="text-sm font-medium text-gray-300 uppercase mb-3">Pricing Details</h3>
-                        <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700/30 space-y-4">
+                    <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700/30 space-y-4">
+                        <h3 class="text-sm font-medium text-gray-300 uppercase">Pricing Details</h3>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <span class="text-sm font-medium text-cyan-400">Price</span>
                                 <p class="text-white mt-1">${{ Number(viewingProduct.price).toFixed(2) }}</p>
@@ -1457,48 +1569,65 @@ onUnmounted(() => {
                                 <span class="text-sm font-medium text-cyan-400">Discount</span>
                                 <p class="text-white mt-1">{{ Number(viewingProduct.discount).toFixed(2) }}%</p>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700/30 space-y-4">
+                        <h3 class="text-sm font-medium text-gray-300 uppercase">Product Details</h3>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <span class="text-sm font-medium text-cyan-400">Tax</span>
-                                <p class="text-white mt-1">{{ Number(viewingProduct.tax).toFixed(2) }}%</p>
+                                <span class="text-sm font-medium text-cyan-400">Category</span>
+                                <p class="text-white mt-1">{{ viewingProduct.category }}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-cyan-400">Brand Name</span>
+                                <p class="text-white mt-1">{{ viewingProduct.brand_name }}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-cyan-400">Size</span>
+                                <p class="text-white mt-1">{{ viewingProduct.size || 'N/A' }}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-cyan-400">Color</span>
+                                <p class="text-white mt-1">{{ viewingProduct.color || 'N/A' }}</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Product Specifications -->
-                    <div class="space-y-4">
-                        <h3 class="text-sm font-medium text-gray-300 uppercase mb-3">Product Specifications</h3>
-                        <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700/30 space-y-4">
+                    <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700/30 space-y-4">
+                        <h3 class="text-sm font-medium text-gray-300 uppercase">Stock Information</h3>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <span class="text-sm font-medium text-cyan-400">Size</span>
-                                <p class="text-white mt-1">{{ viewingProduct.size }}</p>
+                                <span class="text-sm font-medium text-cyan-400">Quantity</span>
+                                <p class="text-white mt-1">{{ viewingProduct.quantity }}</p>
                             </div>
                             <div>
-                                <span class="text-sm font-medium text-cyan-400">Color</span>
-                                <p class="text-white mt-1">{{ viewingProduct.color }}</p>
+                                <span class="text-sm font-medium text-cyan-400">Added Stock Amount</span>
+                                <p class="text-white mt-1">{{ viewingProduct.added_stock_amount }}</p>
                             </div>
                             <div>
-                                <span class="text-sm font-medium text-cyan-400">Brand</span>
+                                <span class="text-sm font-medium text-cyan-400">Status</span>
                                 <p class="text-white mt-1">
-                                    <span class="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-                                        {{ viewingProduct.brand_name }}
+                                    <span :class="{
+                                        'px-2 py-1 text-xs rounded-full': true,
+                                        'bg-green-500/20 text-green-300 border border-green-500/30': viewingProduct.status === 'In Stock',
+                                        'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30': viewingProduct.status === 'Low Stock',
+                                        'bg-red-500/20 text-red-300 border border-red-500/30': viewingProduct.status === 'Out of Stock'
+                                    }">
+                                        {{ viewingProduct.status }}
                                     </span>
                                 </p>
                             </div>
                             <div>
-                                <span class="text-sm font-medium text-cyan-400">Bar Code</span>
-                                <p class="text-white font-mono bg-gray-700/50 px-2 py-1 rounded mt-1">{{ viewingProduct.bar_code }}</p>
+                                <span class="text-sm font-medium text-cyan-400">Location</span>
+                                <p class="text-white mt-1">{{ viewingProduct.location || 'N/A' }}</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Additional Information -->
-                    <div class="md:col-span-2">
-                        <h3 class="text-sm font-medium text-gray-300 uppercase mb-3">System Information</h3>
-                        <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700/30 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <span class="text-sm font-medium text-cyan-400">Inventory ID</span>
-                                <p class="text-white font-mono bg-gray-700/50 px-2 py-1 rounded mt-1">{{ viewingProduct.inventory_id }}</p>
-                            </div>
+                    <div class="bg-gray-800/50 backdrop-blur-sm p-4 rounded-lg border border-gray-700/30 space-y-4">
+                        <h3 class="text-sm font-medium text-gray-300 uppercase">System Information</h3>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <span class="text-sm font-medium text-cyan-400">Supplier ID</span>
                                 <p class="text-white font-mono bg-gray-700/50 px-2 py-1 rounded mt-1">{{ viewingProduct.supplier_id }}</p>
@@ -1537,6 +1666,81 @@ onUnmounted(() => {
             :showModal="showGRN"
             @close="showGRN = false"
         />
+
+        <div v-if="showImageUploadModal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+            <div class="bg-gradient-to-b from-gray-800 to-gray-900 rounded-lg w-full max-w-md p-6 shadow-xl border border-gray-700/50">
+                <div class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+                    <div class="flex items-center space-x-2">
+                        <PhotoIcon class="w-6 h-6 text-blue-400" />
+                        <h2 class="text-xl font-semibold text-blue-400">Upload Product Image</h2>
+                    </div>
+                    <button 
+                        @click="showImageUploadModal = false"
+                        class="text-gray-400 hover:text-gray-200 hover:bg-gray-700 p-2 rounded-full transition-colors"
+                    >
+                        <XMarkIcon class="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center">
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            class="hidden" 
+                            id="imageInput" 
+                            @change="handleFileChange"
+                        >
+                        <label 
+                            for="imageInput"
+                            class="cursor-pointer flex flex-col items-center justify-center space-y-2"
+                        >
+                            <PhotoIcon class="w-12 h-12 text-gray-400" />
+                            <span class="text-gray-400">Click to select image</span>
+                        </label>
+                    </div>
+
+                    <div v-if="imagePreview" class="mt-4">
+                        <img 
+                            :src="imagePreview" 
+                            alt="Preview" 
+                            class="max-h-48 rounded-lg mx-auto"
+                        />
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-700">
+                    <button 
+                        @click="showImageUploadModal = false"
+                        class="px-4 py-2.5 text-gray-300 hover:text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        @click="uploadProductImage"
+                        :disabled="!selectedFile || isUploadingImage"
+                        :class="[
+                            'px-4 py-2.5 rounded-lg transition-colors flex items-center space-x-2',
+                            selectedFile && !isUploadingImage
+                                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                                : 'bg-gray-600 cursor-not-allowed text-gray-400'
+                        ]"
+                    >
+                        <template v-if="isUploadingImage">
+                            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Uploading...</span>
+                        </template>
+                        <template v-else>
+                            <PhotoIcon class="w-5 h-5 mr-2" />
+                            <span>Upload Image</span>
+                        </template>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 

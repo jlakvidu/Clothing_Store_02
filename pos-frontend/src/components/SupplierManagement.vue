@@ -96,7 +96,7 @@ const closeViewModal = () => {
 
 const openEditModal = (supplier) => {
     editingSupplier.value = { ...supplier }
-    formErrors.value = { companyName: '', contact: '', email: '' }  // Reset form errors
+    formErrors.value = { companyName: '', contact: '', email: '' }  
     showEditModal.value = true
 }
 

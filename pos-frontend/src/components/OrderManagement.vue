@@ -1,7 +1,7 @@
 <script setup>
 import Header from './Header.vue'
 import Sidebar from './Sidebar.vue'
-import SidebarCashier from './Sidebar-cashier.vue' // Add this import
+import SidebarCashier from './Sidebar-cashier.vue' 
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
@@ -116,7 +116,6 @@ const fetchOrders = async () => {
   try {
     const response = await connection.get('/sales')
     console.log('API Response:', response.data)
-    // Sort orders by ID before mapping
     const sortedData = response.data.data.sort((a, b) => b.id - a.id)
     orders.value = sortedData.map(order => ({
       id: order.id,
@@ -176,7 +175,6 @@ const formatPaymentType = (type) => {
   return types[type] || type.toLowerCase()
 }
 
-// Add these helper methods for creating/updating orders
 const createOrder = async (orderData) => {
   try {
     const response = await connection.post('/sales', {
@@ -219,15 +217,13 @@ const updateOrderInAPI = async (id, orderData) => {
   }
 }
 
-// Add onMounted hook to fetch orders when component mounts
 onMounted(() => {
   fetchOrders()
 })
 
 const filteredOrders = computed(() => {
-  let result = [...orders.value] // Create a copy of orders array
+  let result = [...orders.value] 
 
-  // Apply search filter
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(order =>
@@ -236,12 +232,10 @@ const filteredOrders = computed(() => {
     )
   }
 
-  // Apply payment method filter
   if (selectedPaymentMethod.value !== 'all') {
     result = result.filter(order => order.payment === selectedPaymentMethod.value)
   }
 
-  // Apply date range filter
   if (selectedDateRange.value !== 'all') {
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -269,7 +263,6 @@ const filteredOrders = computed(() => {
           if (customStartDate.value && customEndDate.value) {
             const start = new Date(customStartDate.value)
             const end = new Date(customEndDate.value)
-            // Set end date to end of day
             end.setHours(23, 59, 59, 999)
             return orderDate >= start && orderDate <= end
           }
@@ -280,7 +273,6 @@ const filteredOrders = computed(() => {
     })
   }
 
-  // Apply sorting
   result = result.sort((a, b) => {
     let valueA, valueB
 
@@ -418,13 +410,12 @@ const openExportModal = () => {
 }
 
 const exportToPDF = async (orders) => {
-  // Create a temporary div for PDF content
   const element = document.createElement('div')
   element.innerHTML = `
     <div style="padding: 20px; font-family: Arial, sans-serif;">
       <div style="text-align: center; margin-bottom: 30px;">
         <h1 style="color: #1e293b; margin: 0;">Order Export Report</h1>
-        <p style="color: #64748b; margin: 10px 0;">Hardware Supply Store</p>
+        <p style="color: #64748b; margin: 10px 0;">Clothing Supply Store</p>
         <p style="color: #64748b; margin: 5px 0;">Generated on ${new Date().toLocaleString()}</p>
       </div>
 
@@ -740,11 +731,9 @@ const printOrderDetails = () => {
   `)
 }
 
-// Add loading state for delete/update operations
 const isDeleting = ref(false)
 const isUpdating = ref(false)
 
-// Replace existing deleteOrder function
 const deleteOrder = async (orderId) => {
   try {
     const result = await Swal.fire({
@@ -763,7 +752,6 @@ const deleteOrder = async (orderId) => {
       isDeleting.value = true
       await connection.delete(`/sales/${orderId}`)
 
-      // Remove from local state
       orders.value = orders.value.filter(order => order.id !== orderId)
       const index = selectedOrders.value.indexOf(orderId)
       if (index !== -1) {
@@ -794,7 +782,6 @@ const deleteOrder = async (orderId) => {
   }
 }
 
-// Replace existing updateOrder function
 const updateOrder = async () => {
   if (!editingOrder.value) return
 
@@ -814,7 +801,6 @@ const updateOrder = async () => {
     if (result.isConfirmed) {
       isUpdating.value = true
 
-      // Format the update data to match the expected structure
       const updateData = {
         customer_id: editingOrder.value.customer_id,
         cashier_id: editingOrder.value.cashier_id,
@@ -834,7 +820,7 @@ const updateOrder = async () => {
       const response = await connection.put(`/sales/${editingOrder.value.id}`, updateData)
 
       isUpdateModalOpen.value = false
-      await fetchOrders() // Refresh the data
+      await fetchOrders() 
 
       Swal.fire({
         title: 'Updated!',
@@ -851,7 +837,6 @@ const updateOrder = async () => {
       details: error.response?.data
     })
 
-    // Enhanced error handling with validation messages
     let errorMessage = 'Failed to update order'
     if (error.response?.data?.errors) {
       const validationErrors = Object.values(error.response.data.errors).flat()
@@ -873,7 +858,6 @@ const updateOrder = async () => {
   }
 }
 
-// Replace existing bulkDeleteOrders function
 const bulkDeleteOrders = async () => {
   if (selectedOrders.value.length === 0) {
     Swal.fire({
@@ -903,14 +887,12 @@ const bulkDeleteOrders = async () => {
     if (result.isConfirmed) {
       isDeleting.value = true
 
-      // Delete orders one by one
       await Promise.all(
         selectedOrders.value.map(orderId =>
           connection.delete(`/sales/${orderId}`)
         )
       )
 
-      // Update local state
       orders.value = orders.value.filter(order => !selectedOrders.value.includes(order.id))
       selectedOrders.value = []
 
@@ -923,7 +905,6 @@ const bulkDeleteOrders = async () => {
         color: '#ffffff'
       })
 
-      // Refresh orders
       await fetchOrders()
     }
   } catch (error) {
@@ -1009,7 +990,7 @@ const getPaymentIcon = (method) => {
 }
 
 const openUpdateModal = (order) => {
-  editingOrder.value = JSON.parse(JSON.stringify(order)) // Create a copy
+  editingOrder.value = JSON.parse(JSON.stringify(order)) 
   isUpdateModalOpen.value = true
 }
 
@@ -1054,12 +1035,10 @@ const validateReturnQuantity = (item) => {
   }
 }
 
-// Update submitReturn to include validation
 const submitReturn = async () => {
   try {
     const itemsToReturn = selectedItems.value.filter(item => item.quantity > 0)
     
-    // Add validation check
     const invalidItems = selectedItems.value
       .filter(item => item.quantity > 0)
       .map(item => ({
@@ -1097,7 +1076,7 @@ const submitReturn = async () => {
     if (result.isConfirmed) {
       isProcessingReturn.value = true
       await connection.post(`/return/sales/${returningOrder.value.id}`, {
-        cashier_id: 1, // Replace with actual cashier ID
+        cashier_id: 1, 
         payment_type: returningOrder.value.payment,
         status: 0,
         items: itemsToReturn.map(item => ({
@@ -1108,7 +1087,7 @@ const submitReturn = async () => {
       })
 
       isReturnModalOpen.value = false
-      await fetchOrders() // Refresh orders list
+      await fetchOrders() 
 
       Swal.fire({
         title: 'Success!',
@@ -1151,7 +1130,6 @@ const calculateTotal = (order) => {
   <div class="min-h-screen bg-gradient-to-br from-[#0f172a] to-[#1e293b] text-white font-sans">
     <div class="fixed left-0 top-0 w-2 h-full z-[55] hover-trigger" @mouseenter="showSidebar"></div>
 
-    <!-- Conditionally render sidebar based on admin status -->
     <SidebarCashier 
       v-if="!isAdmin"
       :isVisible="isSidebarVisible" 
@@ -1224,7 +1202,6 @@ const calculateTotal = (order) => {
                       class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                   </div>
 
-                  <!-- Custom date range inputs -->
                   <div v-if="selectedDateRange === 'custom'" class="grid grid-cols-2 gap-3">
                     <div>
                       <label class="block text-xs text-gray-400 mb-1">Start Date</label>
@@ -1596,7 +1573,6 @@ const calculateTotal = (order) => {
             </button>
           </div>
 
-          <!-- Basic Order Info -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div class="space-y-4">
               <div>
@@ -1713,17 +1689,14 @@ const calculateTotal = (order) => {
             </div>
           </div>
 
-          <!-- Order Summary -->
           <div class="mt-8 bg-[#1e293b] rounded-lg border border-[#334155] p-4">
             <h3 class="text-sm font-medium text-gray-400 mb-4">Order Summary</h3>
             <div class="space-y-3">
-              <!-- Subtotal -->
               <div class="flex justify-between items-center pb-3 border-b border-[#334155]/50">
                 <span class="text-gray-400">Subtotal</span>
                 <span class="text-white font-medium">Rs. {{ currentOrderDetail.subtotal?.toLocaleString() }}</span>
               </div>
               
-              <!-- Discount -->
               <div v-if="currentOrderDetail.discount > 0" 
                   class="flex justify-between items-center pb-3 border-b border-[#334155]/50">
                 <div class="flex items-center gap-2">
@@ -1737,7 +1710,6 @@ const calculateTotal = (order) => {
                 </span>
               </div>
               
-              <!-- Total -->
               <div class="flex justify-between items-center pt-2">
                 <span class="text-lg font-medium text-white">Total Amount</span>
                 <span class="text-lg font-bold text-blue-400">
@@ -1915,7 +1887,6 @@ const calculateTotal = (order) => {
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="isReturnModalOpen = false"></div>
 
         <div class="relative bg-[#1a2234] rounded-xl shadow-xl border border-[#334155] w-full max-w-5xl p-6 z-10 animate-scale-in">
-          <!-- Header -->
           <div class="flex items-center justify-between pb-6 border-b border-[#334155]">
             <div class="flex items-center gap-4">
               <div class="p-3 bg-purple-500/20 text-purple-400 rounded-lg">
@@ -1933,7 +1904,6 @@ const calculateTotal = (order) => {
             </button>
           </div>
 
-          <!-- Return Items -->
           <div class="py-6">
             <div class="flex items-center gap-2 mb-4">
               <Package class="w-4 h-4 text-purple-400" />
@@ -1943,7 +1913,6 @@ const calculateTotal = (order) => {
             <div class="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
               <div v-for="(item, index) in selectedItems" :key="index"
                 class="bg-[#1e293b] rounded-xl border border-[#334155] overflow-hidden transition-all duration-300 hover:border-purple-500/30">
-                <!-- Item Header -->
                 <div class="p-4 bg-[#1e293b]/50 border-b border-[#334155] flex items-center justify-between">
                   <div class="flex items-center gap-3">
                     <div class="p-2 bg-[#334155] rounded-lg">
@@ -1962,10 +1931,8 @@ const calculateTotal = (order) => {
                   </div>
                 </div>
 
-                <!-- Item Details -->
                 <div class="p-4">
                   <div class="grid grid-cols-2 gap-6">
-                    <!-- Left Column - Return Quantity -->
                     <div>
                       <label class="block text-sm text-gray-400 mb-2">Return Quantity</label>
                       <div class="relative">
@@ -1994,7 +1961,6 @@ const calculateTotal = (order) => {
                         </div>
                       </div>
                       
-                      <!-- Validation Message -->
                       <div class="min-h-[20px] mt-2">
                         <div v-if="item.quantity" 
                           class="flex items-center gap-1.5 text-xs"
@@ -2008,7 +1974,6 @@ const calculateTotal = (order) => {
                       </div>
                     </div>
 
-                    <!-- Right Column - Return Reason -->
                     <div>
                       <label class="block text-sm text-gray-400 mb-2">Return Reason</label>
                       <input 
@@ -2027,7 +1992,6 @@ const calculateTotal = (order) => {
                     </div>
                   </div>
 
-                  <!-- Progress Bar -->
                   <div class="mt-4">
                     <div class="h-1 bg-[#334155] rounded-full overflow-hidden">
                       <div 
@@ -2048,7 +2012,6 @@ const calculateTotal = (order) => {
             </div>
           </div>
 
-          <!-- Footer -->
           <div class="flex justify-end gap-3 pt-6 border-t border-[#334155] mt-6">
             <button 
               @click="isReturnModalOpen = false"
@@ -2143,7 +2106,6 @@ button:active:not(:disabled) {
   background-color: rgba(75, 85, 99, 0.5);
 }
 
-/* Add these styles for the dark calendar */
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
   opacity: 0.5;
@@ -2154,7 +2116,6 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   opacity: 0.8;
 }
 
-/* Add these styles for the dark date inputs */
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
   opacity: 0.5;

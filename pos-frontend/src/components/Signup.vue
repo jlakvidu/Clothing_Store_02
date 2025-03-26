@@ -20,9 +20,7 @@ const formIsValid = ref(false)
 
 const router = useRouter()
 
-// Animation related refs - with varied sizes and more circles
 const circles = ref([
-  // Large circles
   { 
     x: 80, 
     y: 30, 
@@ -48,7 +46,6 @@ const circles = ref([
     scale: 1
   },
   
-  // Medium circles
   { 
     x: 70, 
     y: 60, 
@@ -74,7 +71,6 @@ const circles = ref([
     scale: 1
   },
   
-  // Small circles
   { 
     x: 40, 
     y: 35, 
@@ -100,7 +96,6 @@ const circles = ref([
     scale: 1
   },
   
-  // Tiny circles
   { 
     x: 30, 
     y: 80, 
@@ -154,27 +149,23 @@ const circles = ref([
 const animationActive = ref(true)
 const animationFrame = ref(null)
 
-// Animation setup
 onMounted(() => {
   startAnimation()
 })
 
 onUnmounted(() => {
-  animationActive.value = false // Stop animation when component unmounts
+  animationActive.value = false 
   if (animationFrame.value) cancelAnimationFrame(animationFrame.value)
 })
 
-// Random movement animation function
 const startAnimation = () => {
   const animate = () => {
     if (!animationActive.value) return
     
     circles.value.forEach((circle, index) => {
-      // Move circles
       circle.x += circle.speedX * circle.directionX
       circle.y += circle.speedY * circle.directionY
       
-      // Randomly change direction occasionally
       if (Math.random() < 0.005) {
         circle.directionX *= -1
       }
@@ -182,18 +173,15 @@ const startAnimation = () => {
         circle.directionY *= -1
       }
       
-      // Randomly change speed occasionally
       if (Math.random() < 0.01) {
         circle.speedX = 0.02 + Math.random() * 0.05
         circle.speedY = 0.02 + Math.random() * 0.05
       }
       
-      // Pulse effect
       if (Math.random() < 0.02) {
         circle.scale = 0.95 + Math.random() * 0.1
       }
       
-      // Boundary checks
       if (circle.x > 95) {
         circle.directionX = -1
       } else if (circle.x < 5) {
@@ -298,9 +286,9 @@ const navigateToSignin = () => {
       <div class="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden h-screen" style="background-color: #050A24;">
         <div class="relative z-10 flex flex-col">
           <div>
-            <h1 class="text-3xl font-bold text-white mb-8">Hardware POS System</h1>
+            <h1 class="text-3xl font-bold text-white mb-8">Layos Clothing</h1>
             <img 
-              src="@/assets/sign-page img.jpg" 
+              src="@/assets/Layos_clothing.jpg" 
               alt="POS System"
               class="w-full h-[32rem] object-cover rounded-lg mb-12"
             />
@@ -319,7 +307,6 @@ const navigateToSignin = () => {
       </div>
 
       <div class="flex items-center justify-center w-full px-8 relative overflow-hidden">
-        <!-- Professional Animated Circles with Random Movement -->
         <div 
           v-for="(circle, index) in circles" 
           :key="index"

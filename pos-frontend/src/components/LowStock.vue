@@ -22,7 +22,6 @@ const toggleSidebar = () => {
   isSidebarVisible.value = !isSidebarVisible.value
 };
 
-// Add sidebar control functions
 const showSidebar = () => {
   isSidebarVisible.value = true
 };
@@ -57,26 +56,17 @@ return{
     <div class="fixed left-0 top-0 w-2 h-full z-[55] hover-trigger"
          @mouseenter="showSidebar"></div>
     
-    <!-- Sidebar with updated props -->
     <Sidebar 
       :isVisible="isSidebarVisible" 
       @closeSidebar="closeSidebar"
     />
 
-    <!-- Header -->
     <Header />
 
 
-
-<!-- Modal toggle -->
-
-
-<!-- Main modal -->
 <div v-if="showPreviewModel" id="select-modal" tabindex="-1" aria-hidden="true" class="fixed inset-0 overflow-y-auto flex  right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full ">
     <div class="relative p-4 w-full max-w-md max-h-full">
-        <!-- Modal content -->
         <div class="relative bg-white rounded-lg shadow-sm dark:bg-gray-800 border-gray-100">
-            <!-- Modal header -->
             <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600 border-gray-200">
                 
                 <button @click="showPreviewModel=false" type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm h-8 w-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-toggle="select-modal">
@@ -86,7 +76,6 @@ return{
                     <span class="sr-only">Close modal</span>
                 </button>
             </div>
-            <!-- Modal body -->
             <div class="p-4 md:p-5 bg-slate-800 ">
                 <div class="flex space-x-2">
                     <svg class="w-[24px] h-[24px] text-gray-800 dark:text-cyan-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
@@ -175,7 +164,6 @@ return{
 </div>
 
 
-<!-- Main modal -->
 <div v-if="ShowModel" id="select-modal" tabindex="-1" aria-hidden="true" class="fixed inset-0 overflow-y-auto flex  right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full ">
     <div class="relative p-4 w-full max-w-lg">
         <div class="bg-gray-800 rounded-lg p-6 shadow-xl">
@@ -219,15 +207,7 @@ return{
     </div>
 </div>
 
-    <!-- =============================== -->
-
-
-
-
-
-
 <div class="container mx-auto p-6 ">
-        <!-- Header -->
         <div class="sub_header flex flex-col md:flex-row justify-between items-center mb-6 ">
             <div class="flex space-x-4">
             <div>        
@@ -252,7 +232,6 @@ return{
                     </div>
         </div>
 
-        <!-- Responsive Table -->
         <div class="overflow-x-auto">
            <table class="w-full table-auto">
           

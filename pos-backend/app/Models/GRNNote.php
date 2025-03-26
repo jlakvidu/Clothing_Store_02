@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class GRNNote extends Model
 {
-    protected $table = 'grn_notes'; // Add this line to specify the correct table name
+    protected $table = 'grn_notes';
 
     protected $fillable = [
         'grn_number',
@@ -15,13 +15,20 @@ class GRNNote extends Model
         'admin_id',
         'price',
         'product_details',
-        'received_date'
+        'received_date',
+        'previous_quantity',
+        'new_quantity',
+        'adjusted_quantity',
+        'adjustment_type'
     ];
 
     protected $casts = [
         'product_details' => 'array',
-        'received_date' => 'date',
-        'price' => 'decimal:2'
+        'received_date' => 'datetime',
+        'price' => 'decimal:2',
+        'previous_quantity' => 'integer',
+        'new_quantity' => 'integer',
+        'adjusted_quantity' => 'integer'
     ];
 
     public function supplier()

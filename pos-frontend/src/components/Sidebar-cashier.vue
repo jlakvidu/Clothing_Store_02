@@ -80,16 +80,13 @@ const clearHoveredSection = () => {
        :class="[isVisible ? 'translate-x-0 shadow-2xl' : '-translate-x-full']"
        @mouseleave="emit('closeSidebar')">
     <div class="w-80 h-full bg-slate-900 flex flex-col relative overflow-hidden">
-      <!-- Animated Background Elements -->
       <div class="absolute inset-0 overflow-hidden pointer-events-none">
         <div class="floating-circle top-20 -left-8 w-16 h-16 bg-blue-500/10"></div>
         <div class="floating-circle top-60 -right-8 w-20 h-20 bg-indigo-500/10"></div>
         <div class="floating-circle bottom-40 left-20 w-12 h-12 bg-cyan-500/10"></div>
       </div>
 
-      <!-- Header with status indicator -->
       <div class="px-6 py-6 bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 relative">
-        <!-- Add status indicator -->
         <div class="absolute top-4 right-4 flex items-center space-x-2">
           <span class="animate-pulse w-2 h-2 bg-green-400 rounded-full"></span>
           <span class="text-xs text-green-400">Online</span>
@@ -113,7 +110,6 @@ const clearHoveredSection = () => {
         </div>
       </div>
       
-      <!-- Menu Sections with enhanced animations -->
       <div class="flex-grow overflow-y-auto custom-scrollbar px-4 py-6 relative">
         <div class="absolute top-0 left-0 w-full h-12 bg-gradient-to-b from-slate-900 to-transparent z-10 pointer-events-none"></div>
         <div v-for="(section, index) in menuSections" 
@@ -145,17 +141,11 @@ const clearHoveredSection = () => {
                           currentRoute === item.route ? 'text-blue-400' : 'text-slate-400 group-hover:text-blue-400'
                         ]" />
               <span class="font-medium text-sm">{{ item.name }}</span>
-              
-              <div v-if="item.name === 'Order List'" 
-                   class="ml-auto bg-gradient-to-r from-indigo-500 to-blue-500 text-white text-xs font-medium px-2 py-0.5 rounded-full">
-                5
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Footer with activity indicators -->
       <div class="mt-auto border-t border-slate-800 p-4 bg-slate-900/50 backdrop-blur-sm">
         <div class="flex items-center justify-between mb-3 px-2">
           <div class="flex items-center space-x-2">

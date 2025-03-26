@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router'
 import { ref, computed, onMounted, watch } from 'vue'
 import Header from './Header.vue'
 import Sidebar from './Sidebar.vue'
-import SidebarCashier from './Sidebar-cashier.vue' // Add this import
+import SidebarCashier from './Sidebar-cashier.vue' 
 import Swal from 'sweetalert2'
 import {
   ShoppingCart,
@@ -127,16 +127,19 @@ const fetchProducts = async () => {
   try {
     loading.value = true
     const response = await connection.get('/products')
-    const productsWithInventory = await Promise.all(
-      response.data.data.map(async (product) => {
-        const inventoryResponse = await connection.get(`/inventory/${product.inventory_id}`)
-        return {
-          ...product,
-          stock: inventoryResponse.data.quantity
-        }
-      })
-    )
-    products.value = productsWithInventory
+    products.value = response.data.data.map(product => ({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      brand_name: product.brand_name,
+      quantity: product.quantity,
+      category: product.category,
+      status: product.status,
+      color: product.color,
+      size: product.size,
+      discount: product.discount,
+      image_url: product.image_url 
+    }))
   } catch (err) {
     error.value = 'Failed to fetch products'
     console.error('Error fetching products:', err)
@@ -145,7 +148,6 @@ const fetchProducts = async () => {
   }
 }
 
-// Simplify filtered products to only use search
 const filteredProducts = computed(() => {
   let result = products.value
   if (searchQuery.value) {
@@ -168,8 +170,7 @@ const addToOrder = (product) => {
   const existingItem = orderItems.value.find(item => item.id === product.id)
 
   if (existingItem) {
-    // Check if adding one more would exceed stock
-    if (existingItem.quantity >= product.stock) {
+    if (existingItem.quantity >= product.quantity) {
       Swal.fire({
         title: 'Stock Limit Reached',
         text: 'Cannot add more items than available in stock',
@@ -181,13 +182,13 @@ const addToOrder = (product) => {
     }
     existingItem.quantity++
   } else {
-    if (product.stock > 0) {
+    if (product.quantity > 0) {
       orderItems.value.push({
         id: product.id,
         name: product.name,
         price: product.price,
         quantity: 1,
-        initialStock: product.stock // Store initial stock for reference
+        initialStock: product.quantity 
       })
     } else {
       Swal.fire({
@@ -244,15 +245,15 @@ const updateQuantity = (item, change) => {
     return
   }
 
-  if (newQuantity > product.stock) {
+  if (newQuantity > product.quantity) { 
     Swal.fire({
       title: 'Stock Limit Reached',
-      text: `Maximum available stock is ${product.stock} units`,
+      text: `Maximum available stock is ${product.quantity} units`,
       icon: 'warning',
       background: '#1e293b',
       color: '#ffffff'
     })
-    item.quantity = product.stock
+    item.quantity = product.quantity
     return
   }
 
@@ -276,10 +277,9 @@ const openPaymentModal = () => {
   }
 }
 
-const cashierId = ref(null) // Update cashierId ref and add getUserData
-const orderStatus = ref(1) // 1 for completed, 0 for pending etc.
-const isProcessingOrder = ref(false)  // Add this new ref
-
+const cashierId = ref(null) 
+const orderStatus = ref(1) 
+const isProcessingOrder = ref(false)  
 const getUserData = () => {
   const userData = localStorage.getItem('user')
   if (userData) {
@@ -291,13 +291,21 @@ const getUserData = () => {
 const updateProductStock = (productId, quantity) => {
   const product = products.value.find(p => p.id === productId)
   if (product) {
-    product.stock -= quantity
+    product.quantity -= quantity
+    
+    if (product.quantity === 0) {
+      product.status = 'Out Of Stock'
+    } else if (product.quantity < 20) {
+      product.status = 'Low Stock'
+    } else {
+      product.status = 'In Stock'
+    }
   }
 }
 
 const completeOrder = async () => {
   try {
-    isProcessingOrder.value = true // Set loading state
+    isProcessingOrder.value = true
 
     if (!cashierId.value) {
       throw new Error('No cashier ID found. Please login again.')
@@ -306,12 +314,12 @@ const completeOrder = async () => {
     const salesData = {
       time: new Date().toISOString(),
       status: orderStatus.value,
-      payment_type: selectedPaymentMethod.value, // Already uppercase in the ref
+      payment_type: selectedPaymentMethod.value,
       amount: total.value,
-      cashier_id: cashierId.value, // Now using dynamic cashier ID
+      cashier_id: cashierId.value,
       customer_id: customerName.value === 'Walk-in Customer' ? null : 
         customers.value.find(c => c.name === customerName.value)?.id,
-      discount: applyDiscount.value ? customDiscountRate.value : 0, // Add discount data
+      discount: applyDiscount.value ? customDiscountRate.value : 0,
       items: orderItems.value.map(item => ({
         product_id: item.id,
         quantity: item.quantity,
@@ -321,11 +329,7 @@ const completeOrder = async () => {
 
     const response = await connection.post('/sales', salesData)
     
-    // Log the response
-    console.log('Order Response:', response.data)
-
     if (response.status === 201) {
-      // Update local stock after successful order
       orderItems.value.forEach(item => {
         updateProductStock(item.id, item.quantity)
       })
@@ -353,7 +357,6 @@ const completeOrder = async () => {
       })
     }
   } catch (error) {
-    // Enhanced error logging
     console.error('Error completing order:', {
       error,
       errorMessage: error.message,
@@ -368,7 +371,7 @@ const completeOrder = async () => {
       color: '#ffffff'
     })
   } finally {
-    isProcessingOrder.value = false // Reset loading state
+    isProcessingOrder.value = false
   }
 }
 
@@ -400,7 +403,7 @@ const closeReceipt = () => {
 
 const orderId = ref('')
 
-const isLowStock = (stock) => stock < 20;
+const isLowStock = (quantity) => quantity < 20;
 
 const fetchCustomers = async () => {
   try {
@@ -413,29 +416,35 @@ const fetchCustomers = async () => {
 
 const isAdmin = ref(false)
 
-const getCategoryIcon = (name) => {
-  // Simplified category mapping
-  return Box // Default icon for all products
+const getCategoryIcon = (category) => {
+  const iconMap = {
+    'Men': Box,
+    'Women': Box,
+    'Kids': Box,
+    'Accessories': Tag,
+    'Sportswear': Box,
+    'Footwear': Box,
+    'Traditional': Box,
+    'Casual': Box,
+    'Formal': Box
+  }
+  return iconMap[category] || Box
 }
 
-const getCategoryName = (name) => {
-  return 'Hardware' // Default category name
+const getCategoryName = (category) => {
+  return category || 'Uncategorized'
 }
 
-const mapProductToCategory = (name) => {
-  return 'hardware' // Default category
+const mapProductToCategory = (category) => {
+  return category
 }
 
 onMounted(async () => {
-  // Get user data first
   getUserData()
-  // Get admin status from localStorage
   isAdmin.value = localStorage.getItem('isAdmin') === 'true'
-  // Fetch data
   await fetchProducts()
   await fetchCustomers()
   
-  // Generate order ID
   orderId.value = '#' + Math.floor(10000 + Math.random() * 90000)
   invoiceNumber.value = Math.floor(10000 + Math.random() * 90000).toString()
   transactionId.value = '00000' + Math.floor(1000 + Math.random() * 9000).toString()
@@ -449,7 +458,6 @@ onMounted(async () => {
   <div class="min-h-screen bg-[#0f172a] text-white font-sans">
     <div class="fixed left-0 top-0 w-2 h-full z-[55] hover-trigger" @mouseenter="showSidebar"></div>
 
-    <!-- Conditionally render sidebar based on admin status -->
     <SidebarCashier 
       v-if="!isAdmin"
       :isVisible="isSidebarVisible" 
@@ -484,7 +492,6 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Products Grid -->
           <div class="bg-[#1a2234] p-4 rounded-lg shadow-md">
             <div class="flex items-center gap-2 mb-4">
               <div class="p-2 bg-blue-500/20 text-blue-400 rounded-lg">
@@ -511,58 +518,67 @@ onMounted(async () => {
             </div>
 
             <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              <!-- Product Card (without image) -->
-              <div v-for="product in filteredProducts" :key="product.id" @click="addToOrder(product)" 
-                :class="[
-                  'bg-gradient-to-br rounded-lg overflow-hidden cursor-pointer transition-all duration-200 border hover:shadow-lg group relative hover:translate-y-[-2px]',
-                  {
-                    'from-red-500/10 to-red-900/10 border-red-500/50': product.stock === 0,
-                    'from-yellow-500/10 to-yellow-900/10 border-yellow-500/50': product.stock > 0 && product.stock < 20,
-                    'from-[#1e293b] to-[#1a2234] border-[#334155] hover:border-[#475569]': product.stock >= 20
-                  }
-                ]">
+              <div v-for="product in filteredProducts" 
+                   :key="product.id" 
+                   @click="addToOrder(product)" 
+                   :class="[
+                     'bg-gradient-to-br rounded-lg overflow-hidden cursor-pointer transition-all duration-200 border hover:shadow-lg group relative hover:translate-y-[-2px]',
+                     {
+                       'from-red-500/10 to-red-900/10 border-red-500/50': product.quantity === 0,
+                       'from-yellow-500/10 to-yellow-900/10 border-yellow-500/50': product.quantity > 0 && product.quantity < 20,
+                       'from-[#1e293b] to-[#1a2234] border-[#334155] hover:border-[#475569]': product.quantity >= 20
+                     }
+                   ]">
                 
-                <!-- Category Indicator -->
+                <div class="aspect-w-16 aspect-h-9 bg-gray-800/50">
+                  <div v-if="product.image_url" class="w-full h-48 overflow-hidden">
+                    <img 
+                      :src="product.image_url" 
+                      :alt="product.name"
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      @error="$event.target.src = '/placeholder-product.png'"
+                    />
+                  </div>
+                  <div v-else class="w-full h-48 flex items-center justify-center bg-gray-700/50">
+                    <div class="text-4xl font-bold text-gray-500">
+                      {{ product.name?.charAt(0).toUpperCase() }}
+                    </div>
+                  </div>
+                </div>
+                
                 <div class="absolute top-0 left-0 w-1 h-full bg-[#334155]"></div>
                 
-                <!-- Card Content -->
                 <div class="p-4 pl-5">
-                  <!-- Header with Category -->
                   <div class="flex items-center justify-between mb-3">
                     <div class="bg-gray-700/50 text-gray-300 text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                      <component :is="getCategoryIcon(mapProductToCategory(product.name.toLowerCase()))" class="w-3 h-3" />
-                      <span>{{ getCategoryName(mapProductToCategory(product.name.toLowerCase())) }}</span>
+                      <component :is="getCategoryIcon(product.category)" class="w-3 h-3" />
+                      <span>{{ getCategoryName(product.category) }}</span>
                     </div>
                     
-                    <!-- Stock Indicator with updated styling -->
                     <div :class="[
                       'text-xs px-2 py-1 rounded-full flex items-center gap-1',
                       {
-                        'bg-red-500/20 text-red-400': product.stock === 0,
-                        'bg-yellow-500/20 text-yellow-400': product.stock > 0 && product.stock < 20,
-                        'bg-green-500/20 text-green-400': product.stock >= 20
+                        'bg-red-500/20 text-red-400': product.quantity === 0,
+                        'bg-yellow-500/20 text-yellow-400': product.quantity > 0 && product.quantity < 20,
+                        'bg-green-500/20 text-green-400': product.quantity >= 20
                       }
                     ]">
                       <Layers class="w-3 h-3" />
                       <span>
-                        {{ product.stock === 0 ? 'Out of Stock' : 
-                           product.stock < 20 ? `Low Stock: ${product.stock}` : 
-                           `In Stock: ${product.stock}` }}
+                        {{ product.quantity === 0 ? 'Out of Stock' : 
+                           product.quantity < 20 ? `Low Stock: ${product.quantity}` : 
+                           `In Stock: ${product.quantity}` }}
                       </span>
                     </div>
                   </div>
                   
-                  <!-- Product ID -->
                   <div class="text-xs text-gray-500 mb-1">ID: #{{ product.id.toString().padStart(4, '0') }}</div>
                   
-                  <!-- Product Name -->
                   <div class="font-medium text-white text-lg mb-2">{{ product.name }}</div>
                   <div class="text-sm text-gray-400 mb-3">{{ product.brand_name }}</div>
                   
-                  <!-- Divider -->
                   <div class="h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent my-3"></div>
                   
-                  <!-- Price and Add Button -->
                   <div class="flex justify-between items-center">
                     <div>
                       <div class="text-xs text-gray-400 mb-1">Price</div>
@@ -571,7 +587,7 @@ onMounted(async () => {
                     
                     <button :class="[
                       'p-2 rounded-lg transition-colors duration-200 text-white flex items-center gap-2',
-                      product.stock === 0 ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
+                      product.quantity === 0 ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
                     ]">
                       <Plus class="w-4 h-4" />
                       <span>Add</span>
@@ -828,7 +844,6 @@ onMounted(async () => {
       <div
         class="relative bg-white rounded-lg shadow-xl w-full max-w-[800px] z-10 animate-scale-in overflow-auto max-h-[90vh]">
         <div id="receipt-content" class="p-8 text-gray-800">
-          <!-- Header Section -->
           <div class="border-b-2 border-gray-300 pb-8">
             <div class="flex justify-between items-start">
               <div>
@@ -837,7 +852,7 @@ onMounted(async () => {
                   102 Railway Ave.<br>
                   Kandy, Sri Lanka<br>
                   Phone: (94) 81 123 4567<br>
-                  Email: info@hardwaresupply.com
+                  Email: info@clothingsupply.com
                 </div>
               </div>
               <div class="text-right">
@@ -851,7 +866,6 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Billing Information -->
           <div class="grid grid-cols-2 gap-12 py-8">
             <div>
               <div class="text-sm text-gray-600 uppercase tracking-wider mb-2">Bill To</div>
@@ -876,7 +890,6 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Items Table -->
           <div class="mt-8">
             <table class="w-full">
               <thead>
@@ -901,7 +914,6 @@ onMounted(async () => {
             </table>
           </div>
 
-          <!-- Summary -->
           <div class="mt-8 border-t border-gray-200 pt-8">
             <div class="flex justify-end">
               <div class="w-64">
@@ -923,18 +935,16 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Footer -->
           <div class="mt-12 pt-8 border-t border-gray-200">
             <div class="text-center text-gray-600 text-sm">
               <div class="font-medium text-gray-800 mb-2">Thank you for your business!</div>
-              <div>For any inquiries, please contact us at support@hardwaresupply.com</div>
+              <div>For any inquiries, please contact us at support@clothingsupply.com</div>
               <div class="mt-4 text-xs text-gray-500">
                 This is a computer-generated invoice and requires no signature.
               </div>
             </div>
           </div>
 
-          <!-- Terms and Conditions -->
           <div class="mt-8 text-xs text-gray-500">
             <div class="font-medium text-gray-600 mb-1">Terms & Conditions:</div>
             <ul class="list-disc pl-4 space-y-1">

@@ -10,13 +10,26 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Exception;
 use App\Models\Inventory;
+use App\Models\GRNNote;
+use App\Models\ProductImages;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Response;
 
 class ProductController extends Controller
 {
     public function index(): JsonResponse
     {
         try {
-            $products = Product::with('inventory', 'admin')->get();
+            $products = Product::with('image')->get();
+            
+            $products = $products->map(function ($product) {
+                $image_url = null;
+                if ($product->image) {
+                    $image_url = asset('storage/' . $product->image->path);
+                }
+                return array_merge($product->toArray(), ['image_url' => $image_url]);
+            });
+
             return $this->successResponse('Product retrieved successfully', $products);
         } catch (Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -41,12 +54,14 @@ class ProductController extends Controller
                 'discount' => 'required|numeric|min:0',
                 'price' => 'required|numeric|min:0',
                 'brand_name' => 'required|string|max:255',
-                'tax' => 'required|numeric|min:0',
                 'size' => 'required|string',
-                'color' => 'required|string',
+                'color' => 'string',
+                'category' => 'required|string',
+                'added_stock_amount' => 'required|integer',
+                'location' => 'string',
+                'status' => 'required|string',
+                'quantity' => 'required|integer',
                 'description' => 'required|string',
-                'bar_code' => 'required|string|unique:products',
-                'inventory_id' => 'required|exists:inventories,id',
                 'admin_id' => 'required|exists:admins,id',
             ]);
 
@@ -54,44 +69,45 @@ class ProductController extends Controller
                 return $this->errorResponse($validator->errors(), 422);
             }
 
-            // Check if inventory exists
-            $inventory = Inventory::find($request->inventory_id);
-            if (!$inventory) {
-                return $this->errorResponse('Invalid inventory ID. Please enter a valid inventory ID.', 404);
-            }
-
-            // Check for duplicate bar code
-            if (Product::where('bar_code', $request->bar_code)->exists()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'A product with this bar code already exists'
-                ], 409);
-            }
-
             DB::beginTransaction();
 
-            // Calculate profit
             $profit = $request->price - $request->seller_price;
-            
-            // Create product with existing inventory ID
+
+            // Create product first
             $product = Product::create([
                 'name' => $request->name,
                 'price' => $request->price,
                 'seller_price' => $request->seller_price,
                 'profit' => $profit,
                 'discount' => $request->discount ?? 0,
-                'tax' => $request->tax,
                 'size' => $request->size,
                 'color' => $request->color,
+                'category' => $request->category,
                 'description' => $request->description,
-                'bar_code' => $request->bar_code,
                 'brand_name' => $request->brand_name,
-                'inventory_id' => $request->inventory_id,
+                'location' => $request->location,
+                'status' => $request->status,
+                'quantity' => $request->quantity,
                 'supplier_id' => $request->supplier_id,
-                'admin_id' => $request->admin_id
+                'admin_id' => $request->admin_id,
             ]);
 
-            // Create supplier product relationship
+            // Load supplier details
+            $supplier = \App\Models\Supplier::find($request->supplier_id);
+
+            // Generate GRN number
+            $grnNumber = 'GRN-' . date('Y') . '-' . str_pad($product->id, 5, '0', STR_PAD_LEFT);
+
+            // Create GRN Note with more detailed information
+            $grnNote = $this->createGRNNote($product, [
+                'grn_number' => $grnNumber,
+                'quantity' => $request->quantity
+            ]);
+
+            // Load relationships for complete data
+            $product->load(['supplier']);
+            $grnNote->load(['supplier', 'admin']);
+
             SupplierProduct::create([
                 'product_id' => $product->id,
                 'supplier_id' => $request->supplier_id
@@ -99,13 +115,27 @@ class ProductController extends Controller
 
             DB::commit();
 
-            // Load the inventory relationship
-            $product->load('inventory');
-
-            return $this->successResponse('Product created successfully', $product, 201);
+            // Return detailed response
+            return $this->successResponse('Product created successfully with GRN', [
+                'product' => array_merge($product->toArray(), [
+                    'supplierDetails' => [
+                        'name' => $supplier->name,
+                        'email' => $supplier->email,
+                        'contact' => $supplier->contact,
+                        'address' => $supplier->address ?? 'N/A'
+                    ]
+                ]),
+                'grn' => [
+                    'number' => $grnNumber,
+                    'details' => $grnNote,
+                    'supplier' => $supplier,
+                    'received_date' => now()->format('Y-m-d')
+                ]
+            ], 201);
 
         } catch (\Exception $e) {
             DB::rollback();
+            Log::error('Product creation failed: ' . $e->getMessage());
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -113,34 +143,57 @@ class ProductController extends Controller
     public function update(Request $request, string $id): JsonResponse
     {
         try {
-            $product = Product::find($id);
-            if (!$product) {
-                return $this->errorResponse('Product not found', 404);
-            }
+            $product = Product::findOrFail($id);
+            
             $validator = Validator::make($request->all(), [
-                'name' => 'sometimes|string|max:255',
-                'supplier' => 'sometimes|string|max:255',
-                'price' => 'sometimes|numeric|min:0',
-                'seller_price' => 'sometimes|numeric|min:0',
-                'discount' => 'sometimes|numeric|min:0',
-                'brand_name' => 'sometimes|string|max:255',
-                'tax' => 'sometimes|numeric|min:0',
-                'size' => 'sometimes|string',
-                'color' => 'sometimes|string',
-                'description' => 'sometimes|string',
-                'bar_code' => 'sometimes|string|unique:products,bar_code,' . $product->id,
-                'status' => 'sometimes|in:In Stock,Out Of Stock',
-                'inventory_id' => 'sometimes|exists:inventories,id',
-                'admin_id' => 'sometimes|exists:admins,id',
+                'name' => 'required|string|max:255',
+                'price' => 'required|numeric|min:0',
+                'seller_price' => 'required|numeric|min:0',
+                'discount' => 'required|numeric|min:0',
+                'size' => 'required|string|max:255',
+                'color' => 'required|string|max:255',
+                'description' => 'required|string',
+                'category' => 'required|string|max:255',
+                'quantity' => 'required|integer|min:0',
+                'location' => 'nullable|string|max:255',
+                'status' => 'required|string|max:255',
+                'brand_name' => 'required|string|max:255',
+                'supplier_id' => 'required|exists:suppliers,id',
+                'admin_id' => 'required|exists:admins,id',
+                'added_stock_amount' => 'required|integer|min:0'
             ]);
+
             if ($validator->fails()) {
                 return $this->errorResponse($validator->errors(), 422);
             }
+
+            // Calculate profit
             $profit = $request->price - $request->seller_price;
-            $product->update($validator->validated() + ['profit' => $profit]);
+
+            // Update product
+            $product->update([
+                'name' => $request->name,
+                'price' => $request->price,
+                'seller_price' => $request->seller_price,
+                'profit' => $profit,
+                'discount' => $request->discount,
+                'size' => $request->size,
+                'color' => $request->color,
+                'description' => $request->description,
+                'category' => $request->category,
+                'quantity' => $request->quantity,
+                'location' => $request->location,
+                'status' => $request->status,
+                'brand_name' => $request->brand_name,
+                'supplier_id' => $request->supplier_id,
+                'admin_id' => $request->admin_id,
+                'added_stock_amount' => $request->added_stock_amount
+            ]);
+
             return $this->successResponse('Product updated successfully', $product);
-        } catch (Exception $e) {
-            return $this->errorResponse('Failed to update product', 500);
+        } catch (\Exception $e) {
+            Log::error('Product update error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to update product: ' . $e->getMessage(), 500);
         }
     }
 
@@ -190,6 +243,43 @@ class ProductController extends Controller
         }
     }
 
+    public function uploadImage(Request $request, $id)
+    {
+        try {
+            $product = Product::findOrFail($id);
+            
+            $request->validate([
+                'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
+            ]);
+
+            if ($request->hasFile('image')) {
+                $image = $request->file('image');
+                $filename = time() . '.' . $image->getClientOriginalExtension();
+                $path = $image->storeAs('products', $filename, 'public');
+
+                // Create or update product image
+                $productImage = ProductImages::updateOrCreate(
+                    ['product_id' => $product->id],
+                    [
+                        'path' => $path,
+                        'name' => $filename,
+                        'size' => $image->getSize()
+                    ]
+                );
+
+                return $this->successResponse('Image uploaded successfully', [
+                    'image' => $productImage,
+                    'url' => asset('storage/' . $path)
+                ]);
+            }
+
+            return $this->errorResponse('No image file provided', 400);
+        } catch (\Exception $e) {
+            Log::error('Error uploading image: ' . $e->getMessage());
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
     // response functions
 
     private function successResponse(string $message, mixed $data = null, int $code = 200): JsonResponse
@@ -207,5 +297,37 @@ class ProductController extends Controller
             'status' => 'error',
             'message' => $error,
         ], $code);
+    }
+
+    protected function createGRNNote($product, $data)
+    {
+        try {
+            return GRNNote::create([
+                'grn_number' => $data['grn_number'],
+                'product_id' => $product->id,
+                'supplier_id' => $product->supplier_id,
+                'admin_id' => $product->admin_id,
+                'price' => $product->price,
+                'product_details' => [
+                    'name' => $product->name,
+                    'description' => $product->description,
+                    'brand_name' => $product->brand_name,
+                    'size' => $product->size,
+                    'color' => $product->color,
+                    'category' => $product->category,
+                    'quantity' => $product->quantity,
+                    'bar_code' => $product->bar_code,
+                    'location' => $product->location
+                ],
+                'received_date' => now(),
+                'previous_quantity' => $product->quantity - $data['quantity'], // Add previous quantity
+                'new_quantity' => $product->quantity,                         // Add new quantity
+                'adjusted_quantity' => $data['quantity'],                     // Add adjusted quantity
+                'adjustment_type' => 'addition'                               // Add adjustment type
+            ]);
+        } catch (\Exception $e) {
+            Log::error('GRN Note creation failed: ' . $e->getMessage());
+            throw $e;
+        }
     }
 }

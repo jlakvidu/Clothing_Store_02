@@ -46,7 +46,6 @@ const chartOptions = {
   },
 };
 
-// Add computed property for payment method styling
 const getPaymentMethodStyle = (method) => {
   switch (method) {
     case 'CASH':
@@ -59,7 +58,6 @@ const getPaymentMethodStyle = (method) => {
   }
 };
 
-// Add computed property for status styling
 const getStatusColor = (status) => {
   switch (status) {
     case 1:
@@ -71,18 +69,15 @@ const getStatusColor = (status) => {
   }
 };
 
-// Add computed property for user name
 const userName = computed(() => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   return user.name || 'User';
 });
 
 onMounted(async () => {
-  // Initial load or refresh if data is old
   await dashboardStore.fetchDashboardData()
 })
 
-// Optional: Add this to refresh data when component is activated (when returning to dashboard)
 onActivated(() => {
   dashboardStore.fetchDashboardData()
 })
@@ -114,7 +109,6 @@ onActivated(() => {
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <!-- Loading Skeleton -->
         <template v-if="isLoading">
           <div v-for="i in 6" :key="i" 
             class="rounded-xl p-6 transform transition-all duration-200 shadow-lg relative overflow-hidden bg-gray-800/50">
@@ -130,7 +124,6 @@ onActivated(() => {
           </div>
         </template>
 
-        <!-- Actual Cards -->
         <template v-else>
           <div
             class="rounded-xl p-6 transform hover:scale-[1.02] transition-all duration-200 shadow-lg relative overflow-hidden animated-gradient-1"
@@ -231,7 +224,6 @@ onActivated(() => {
       </div>
 
       <div class="flex gap-6">
-        <!-- Table Section (3/4 width) -->
         <div
           class="w-3/4 bg-gradient-to-br from-gray-800 to-gray-800/50 backdrop-blur-sm rounded-xl p-6 overflow-hidden shadow-xl border border-gray-700/50"
         >
@@ -311,7 +303,6 @@ onActivated(() => {
           </div>
         </div>
 
-        <!-- Chart Section (1/4 width) -->
         <div
           class="w-1/4 bg-gradient-to-br from-gray-800 to-gray-800/50 backdrop-blur-sm rounded-xl p-6 overflow-hidden shadow-xl border border-gray-700/50"
         >

@@ -64,7 +64,6 @@ const currentTime = formatTime()
 <template>
   <div v-if="showModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
     <div class="bg-white rounded-xl w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-auto">
-      <!-- Header Controls -->
       <div class="flex justify-between items-center p-5 border-b bg-gray-50 rounded-t-xl sticky top-0 z-10">
         <div class="flex items-center">
           <ArrowPathIcon class="w-6 h-6 text-blue-600 mr-2" />
@@ -88,9 +87,7 @@ const currentTime = formatTime()
         </div>
       </div>
 
-      <!-- GRN Content -->
       <div id="stock-grn-content" class="bg-white p-8">
-        <!-- Company Header -->
         <div class="flex justify-between items-start mb-8">
           <div class="flex items-center">
             <div class="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center mr-4">
@@ -109,12 +106,11 @@ const currentTime = formatTime()
           </div>
         </div>
 
-        <!-- Stock Adjustment Details -->
         <div class="mb-8 border rounded-lg p-6 bg-gray-50">
           <h3 class="text-lg font-semibold text-gray-800 mb-4">Adjustment Details</h3>
           <div class="grid grid-cols-2 gap-6">
             <div>
-              <p class="text-gray-600 mb-1">Inventory ID</p>
+              <p class="text-gray-600 mb-1">Product ID</p>
               <p class="text-lg font-semibold">#{{ stockData.id }}</p>
             </div>
             <div>
@@ -142,7 +138,6 @@ const currentTime = formatTime()
           </div>
         </div>
 
-        <!-- Authorization -->
         <div class="mt-12 grid grid-cols-3 gap-8">
           <div class="text-center">
             <p class="text-gray-600 mb-8">Adjusted By</p>
@@ -164,7 +159,6 @@ const currentTime = formatTime()
           </div>
         </div>
 
-        <!-- Footer -->
         <div class="mt-12 pt-6 border-t text-center">
           <p class="text-sm text-gray-500">This is an official stock adjustment record.</p>
           <p class="text-sm text-gray-500">Generated on {{ currentDate }} at {{ currentTime }}</p>

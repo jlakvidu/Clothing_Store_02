@@ -13,21 +13,29 @@ class Product extends Model
         'seller_price',
         'profit',
         'discount',
-        'tax',
         'size',
         'color',
+        'category',
         'description',
-        'bar_code',
         'brand_name',
-        'inventory_id',
+        'quantity',
+        'location',
+        'status',
+        'added_stock_amount',
         'supplier_id',
         'admin_id'
     ];
 
-    public function inventory(): BelongsTo
-    {
-        return $this->belongsTo(Inventory::class, 'inventory_id');
-    }
+    protected $casts = [
+        'price' => 'decimal:2',
+        'seller_price' => 'decimal:2',
+        'profit' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'quantity' => 'integer',
+        'added_stock_amount' => 'integer',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime'
+    ];
 
     public function admin(): BelongsTo
     {
@@ -42,5 +50,10 @@ class Product extends Model
     public function grnNotes()
     {
         return $this->hasMany(GRNNote::class);
+    }
+
+    public function image()
+    {
+        return $this->hasOne(ProductImages::class);
     }
 }
