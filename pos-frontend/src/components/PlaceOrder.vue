@@ -108,8 +108,6 @@ onMounted(() => {
   updateCategoriesPerPage()
   window.addEventListener('resize', updateCategoriesPerPage)
 
-  orderId.value = '#' + Math.floor(10000 + Math.random() * 90000)
-  invoiceNumber.value = Math.floor(10000 + Math.random() * 90000).toString()
   transactionId.value = '00000' + Math.floor(1000 + Math.random() * 9000).toString()
 
   const now = new Date()
@@ -303,6 +301,8 @@ const updateProductStock = (productId, quantity) => {
   }
 }
 
+const orderNumber = ref('')
+
 const completeOrder = async () => {
   try {
     isProcessingOrder.value = true
@@ -330,6 +330,10 @@ const completeOrder = async () => {
     const response = await connection.post('/sales', salesData)
     
     if (response.status === 201) {
+      // Set both invoice number and order number from the response
+      invoiceNumber.value = response.data.data.id.toString().padStart(4, '0')
+      orderNumber.value = response.data.data.id.toString().padStart(4, '0')
+      
       orderItems.value.forEach(item => {
         updateProductStock(item.id, item.quantity)
       })
@@ -445,8 +449,6 @@ onMounted(async () => {
   await fetchProducts()
   await fetchCustomers()
   
-  orderId.value = '#' + Math.floor(10000 + Math.random() * 90000)
-  invoiceNumber.value = Math.floor(10000 + Math.random() * 90000).toString()
   transactionId.value = '00000' + Math.floor(1000 + Math.random() * 9000).toString()
 
   const now = new Date()
@@ -608,7 +610,9 @@ onMounted(async () => {
                   <ShoppingCart class="w-4 h-4 text-blue-400" />
                   Order Summary
                 </h2>
-                <div class="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">{{ orderId }}</div>
+                <div class="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+                  #{{ orderNumber || 'New Order' }}
+                </div>
               </div>
 
               <div class="mb-3">
