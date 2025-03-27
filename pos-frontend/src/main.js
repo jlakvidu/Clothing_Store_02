@@ -10,7 +10,7 @@ import App from './App.vue';
 const app = createApp(App);
 const pinia = createPinia();
 
-app.use(pinia);  // Add pinia before other plugins
+app.use(pinia);  
 app.use(router);
 app.use(Toast);
 app.mount('#app');

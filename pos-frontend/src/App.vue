@@ -2,14 +2,11 @@
 import Sidebar from './components/Sidebar.vue'
 import SidebarCashier from './components/Sidebar-cashier.vue'
 import { ref, onMounted } from 'vue'
-import { useHass } from '../composables/useHass'
 
 const showSidebar = ref(false)
 const isAdmin = ref(false)
-const { hass, entities, connected, error, connect: reconnect } = useHass()
 
 onMounted(() => {
-  // Check admin status directly from localStorage string value
   isAdmin.value = localStorage.getItem('isAdmin') === 'true' 
 })
 
@@ -24,12 +21,6 @@ const closeSidebar = () => {
 
 <template>
   <div>
-    <div v-if="connected" class="hass-status connected">HASS Connected</div>
-    <div v-else class="hass-status disconnected">
-      HASS Disconnected
-      <span v-if="error" class="error-msg">({{ error }})</span>
-      <button @click="reconnect" class="retry-btn">Retry</button>
-    </div>
     <Sidebar
       v-if="isAdmin"
       :is-visible="showSidebar"
