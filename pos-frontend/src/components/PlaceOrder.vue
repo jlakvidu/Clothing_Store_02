@@ -1,6 +1,6 @@
 <script setup>
 import { useRouter } from 'vue-router' 
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import Header from './Header.vue'
 import Sidebar from './Sidebar.vue'
 import SidebarCashier from './Sidebar-cashier.vue' 
@@ -26,7 +26,9 @@ import {
   Percent,
   Printer,
   Box,
-  Layers
+  Layers,
+  Keyboard,
+  Scan
 } from 'lucide-vue-next'
 import {
   ShieldCheckIcon,
@@ -146,9 +148,127 @@ const fetchProducts = async () => {
   }
 }
 
+const searchMode = ref('manual')  // 'manual' or 'scanner'
+const barcodeInput = ref('')
+const barcodeTimeout = ref(null)
+
+const handleBarcodeScanner = (event) => {
+  if (searchMode.value !== 'scanner') return
+  
+  // Prevent default behavior for Enter key
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    processBarcode()
+    return
+  }
+  
+  // Only allow numbers
+  if (!/^\d$/.test(event.key)) {
+    return
+  }
+  
+  // Clear previous timeout
+  if (barcodeTimeout.value) clearTimeout(barcodeTimeout.value)
+  
+  // Append digit to barcode input
+  barcodeInput.value += event.key
+  
+  // Set timeout longer to handle hardware scanners
+  barcodeTimeout.value = setTimeout(() => {
+    if (barcodeInput.value.length > 0) {
+      processBarcode()
+    }
+  }, 200) // Increased timeout for better hardware scanner compatibility
+}
+
+const processBarcode = () => {
+  if (!barcodeInput.value) return
+  
+  try {
+    const searchId = parseInt(barcodeInput.value, 10)
+    
+    // Find product and handle stock check
+    const product = products.value.find(p => p.id === searchId)
+    
+    if (product) {
+      if (product.quantity <= 0) {
+        Swal.fire({
+          title: 'Out of Stock',
+          text: `${product.name} is currently out of stock`,
+          icon: 'warning',
+          background: '#1e293b',
+          color: '#ffffff'
+        })
+      } else {
+        addToOrder(product)
+        // Play success sound (optional)
+        new Audio('/sounds/beep-success.mp3').play().catch(() => {})
+      }
+    } else {
+      Swal.fire({
+        title: 'Product Not Found',
+        text: `No product found with barcode: ${searchId}`,
+        icon: 'warning',
+        background: '#1e293b',
+        color: '#ffffff'
+      })
+    }
+  } catch (error) {
+    console.error('Error processing barcode:', error)
+  }
+  
+  // Always clear input after processing
+  barcodeInput.value = ''
+}
+
+const testBarcodeScanner = async () => {
+  if (searchMode.value !== 'scanner') return
+  
+  // Show product list in table format
+  console.table(products.value.map(p => ({
+    ID: p.id,
+    Name: p.name,
+    Stock: p.quantity
+  })))
+  
+  const { value: testBarcode } = await Swal.fire({
+    title: 'Test Barcode Scanner',
+    html: `
+      <div class="text-left">
+        <p class="mb-2">Available Product IDs:</p>
+        <div class="bg-gray-800 p-4 rounded-lg text-xs overflow-auto max-h-48">
+          ${products.value.map(p => 
+            `<div class="mb-1 text-white">ID: ${p.id} - ${p.name}</div>`
+          ).join('')}
+        </div>
+      </div>
+    `,
+    input: 'number',
+    inputLabel: 'Enter a product ID to test:',
+    inputPlaceholder: 'Enter ID...',
+    background: '#1e293b',
+    color: '#ffffff',
+    confirmButtonColor: '#3B82F6',
+    showCancelButton: true,
+    inputValidator: (value) => {
+      if (!value) {
+        return 'Please enter a product ID'
+      }
+      if (!products.value.some(p => p.id === parseInt(value))) {
+        return 'Invalid product ID'
+      }
+    }
+  })
+
+  if (testBarcode) {
+    barcodeInput.value = testBarcode
+    processBarcode()
+  }
+}
+
 const filteredProducts = computed(() => {
   let result = products.value
-  if (searchQuery.value) {
+  if (searchMode.value === 'manual' && searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(product =>
       product.name.toLowerCase().includes(query) || 
@@ -156,6 +276,23 @@ const filteredProducts = computed(() => {
     )
   }
   return result
+})
+
+onMounted(() => {
+  updateCategoriesPerPage()
+  window.addEventListener('resize', updateCategoriesPerPage)
+
+  transactionId.value = '00000' + Math.floor(1000 + Math.random() * 9000).toString()
+
+  const now = new Date()
+  currentDate.value = `${now.toLocaleString('default', { month: 'long' })} ${now.getDate()}, ${now.getFullYear()}`
+
+  document.addEventListener('keydown', handleBarcodeScanner)
+})
+
+onUnmounted(() => {
+  if (barcodeTimeout.value) clearTimeout(barcodeTimeout.value)
+  document.removeEventListener('keydown', handleBarcodeScanner)
 })
 
 watch(categoriesPerPage, () => {
@@ -485,11 +622,74 @@ onMounted(async () => {
               <p class="text-gray-300 text-sm mt-1">Create a new order for your customers</p>
             </div>
 
+            <!-- Replace the existing search input with this new search section -->
             <div class="relative w-full sm:w-auto">
+              <div class="flex gap-2 mb-2">
+                <button 
+                  @click="searchMode = 'manual'"
+                  :class="[
+                    'px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 flex items-center gap-2',
+                    searchMode === 'manual' 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700'
+                  ]"
+                >
+                  <Keyboard class="w-4 h-4" />
+                  <span>Manual</span>
+                </button>
+                <button 
+                  @click="searchMode = 'scanner'"
+                  :class="[
+                    'px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 flex items-center gap-2',
+                    searchMode === 'scanner' 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700'
+                  ]"
+                >
+                  <Scan class="w-4 h-4" />
+                  <span>Scanner</span>
+                </button>
+              </div>
+
               <div class="relative">
-                <input type="text" v-model="searchQuery" placeholder="Search products..."
-                  class="bg-[#1e293b] border border-[#334155] rounded-lg pl-10 pr-4 py-2.5 w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/30 text-white" />
-                <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <template v-if="searchMode === 'manual'">
+                  <input 
+                    type="text" 
+                    v-model="searchQuery" 
+                    placeholder="Search products by name or ID..."
+                    class="bg-[#1e293b] border border-[#334155] rounded-lg pl-10 pr-4 py-2.5 w-full sm:w-96 
+                           focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/30 text-white" 
+                  />
+                  <Keyboard class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </template>
+                
+                <template v-else>
+                  <div class="flex gap-2">
+                    <input 
+                      type="text" 
+                      v-model="barcodeInput"
+                      @keydown="handleBarcodeScanner"
+                      placeholder="Scan product barcode..."
+                      class="bg-[#1e293b] border-2 border-blue-500/30 rounded-lg pl-10 pr-4 py-2.5 w-full sm:w-96 
+                             focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/30 text-white"
+                      ref="barcodeInput"
+                      autocomplete="off"
+                    />
+                    <button 
+                      @click="testBarcodeScanner"
+                      class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center gap-2"
+                    >
+                      <Scan class="w-4 h-4" />
+                      Test Scan
+                    </button>
+                  </div>
+                  <Scan class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-400 animate-pulse" />
+                </template>
+              </div>
+              
+              <div v-if="searchMode === 'scanner'" class="mt-2 text-xs text-gray-400 flex items-center gap-2">
+                <div class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                Ready to scan barcodes
               </div>
             </div>
           </div>

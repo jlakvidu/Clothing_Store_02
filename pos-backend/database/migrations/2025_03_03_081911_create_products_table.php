@@ -28,6 +28,7 @@ return new class extends Migration
             $table->string('status');
             $table->integer('added_stock_amount')->default(0);
             $table->string('name');
+            $table->string('bar_code')->nullable()->unique();
             $table->decimal('price', 10, 2)->default(0);
             $table->string('brand_name');
             $table->timestamps();

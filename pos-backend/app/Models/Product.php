@@ -23,7 +23,8 @@ class Product extends Model
         'status',
         'added_stock_amount',
         'supplier_id',
-        'admin_id'
+        'admin_id',
+        'bar_code'
     ];
 
     protected $casts = [
@@ -34,7 +35,8 @@ class Product extends Model
         'quantity' => 'integer',
         'added_stock_amount' => 'integer',
         'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        'updated_at' => 'datetime',
+        'bar_code' => 'string'
     ];
 
     public function admin(): BelongsTo

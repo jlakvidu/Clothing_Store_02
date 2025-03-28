@@ -73,16 +73,11 @@ const newItem = ref({
 const isAddingInventory = ref(false)
 
 const categories = ref([
-  'All',
-  'Warehouse A',
-  'Warehouse B',
-  'Warehouse C'
+  'All'
 ])
 
 const locations = ref([
-  'Warehouse A',
-  'Warehouse B',
-  'Warehouse C'
+  // Update with other location options if needed
 ])
 
 const suppliers = ref([
@@ -258,9 +253,8 @@ const filteredInventory = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(item => 
-      item.location?.toLowerCase().includes(query) ||
       item.status?.toLowerCase().includes(query) ||
-      item.name?.toLowerCase().includes(query) || // Add search by name
+      item.name?.toLowerCase().includes(query) || 
       item.id?.toString().includes(query)
     )
   }
@@ -1175,19 +1169,10 @@ const exportToPDF = async () => {
                 <input 
                   v-model="searchQuery"
                   type="text" 
-                  placeholder="Search by ID, location or status..." 
+                  placeholder="Search by ID or name..." 
                   class="bg-gray-700/70 border border-gray-600/50 rounded-lg text-gray-200 text-sm w-full focus:outline-none focus:ring-2 focus:ring-emerald-500/50 md:w-64 pl-10 pr-4 py-2"
                 />
               </div>
-              
-              <select 
-                v-model="selectedCategory"
-                class="bg-gray-700/70 border border-gray-600/50 rounded-lg text-gray-200 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 px-4 py-2"
-              >
-                <option v-for="category in categories" :key="category" :value="category">
-                  {{ category }}
-                </option>
-              </select>
               
               <button 
                 @click="showExportOptions = true" 

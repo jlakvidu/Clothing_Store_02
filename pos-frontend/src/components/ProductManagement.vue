@@ -56,7 +56,8 @@ const newProduct = ref({
     quantity: 0,
     location: '',
     status: 'In Stock',
-    added_stock_amount: 0
+    added_stock_amount: 0,
+    bar_code: ''
 })
 const editingProduct = ref({
     id: '',
@@ -75,7 +76,8 @@ const editingProduct = ref({
     location: '',
     status: 'In Stock',
     added_stock_amount: 0,
-    profit: 0
+    profit: 0,
+    bar_code: ''
 })
 const productToDelete = ref(null)
 const viewingProduct = ref(null) 
@@ -295,7 +297,8 @@ const handleAddProduct = async () => {
       quantity: parseInt(newProduct.value.quantity),
       location: newProduct.value.location,
       status: newProduct.value.status,
-      added_stock_amount: parseInt(newProduct.value.added_stock_amount)
+      added_stock_amount: parseInt(newProduct.value.added_stock_amount),
+      bar_code: newProduct.value.bar_code,
     }
 
     const response = await connection.post('/products', payload)
@@ -350,7 +353,8 @@ const handleAddProduct = async () => {
         quantity: 0,
         location: '',
         status: 'In Stock',
-        added_stock_amount: 0
+        added_stock_amount: 0,
+        bar_code: ''
       }
 
       Swal.fire({
@@ -419,7 +423,8 @@ const openEditModal = (product) => {
         quantity: product.quantity,
         location: product.location,
         status: product.status,
-        added_stock_amount: product.added_stock_amount
+        added_stock_amount: product.added_stock_amount,
+        bar_code: product.bar_code
     }
     showEditModal.value = true
 }
@@ -444,7 +449,8 @@ const handleEditProduct = async () => {
             brand_name: editingProduct.value.brand_name,
             supplier_id: parseInt(editingProduct.value.supplier_id),
             admin_id: parseInt(editingProduct.value.admin_id),
-            added_stock_amount: parseInt(editingProduct.value.added_stock_amount || 0)
+            added_stock_amount: parseInt(editingProduct.value.added_stock_amount || 0),
+            bar_code: editingProduct.value.bar_code
         }
 
         const response = await connection.put(`/products/${editingProduct.value.id}`, payload)
@@ -1034,6 +1040,16 @@ onUnmounted(() => {
                                 ></textarea>
                                 <span v-if="touchedFields.description && formErrors.description" class="text-red-500 text-xs mt-1">{{ formErrors.description }}</span>
                             </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Bar Code</label>
+                                <input 
+                                    v-model="newProduct.bar_code" 
+                                    type="text"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    placeholder="Enter bar code (optional)"
+                                >
+                            </div>
                         </div>
 
                         <div class="bg-gray-750 p-4 rounded-lg space-y-4">
@@ -1305,6 +1321,16 @@ onUnmounted(() => {
                                     required
                                     rows="3"
                                 ></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-1">Bar Code</label>
+                                <input 
+                                    v-model="editingProduct.bar_code" 
+                                    type="text"
+                                    class="w-full px-4 py-2.5 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 border border-gray-600"
+                                    placeholder="Enter bar code (optional)"
+                                >
                             </div>
                         </div>
 

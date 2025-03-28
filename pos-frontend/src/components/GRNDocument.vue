@@ -137,10 +137,10 @@ const productDetails = computed(() => ({
               <TruckIcon class="w-10 h-10" />
             </div>
             <div>
-              <h1 class="text-2xl font-bold text-gray-800 tracking-tight">HARDWARE ENTERPRISE</h1>
+              <h1 class="text-2xl font-bold text-gray-800 tracking-tight">LAYOS CLOTHING</h1>
               <p class="text-gray-600 text-sm">Premium Building Materials & Supplies</p>
               <p class="text-gray-500 text-xs mt-1">123 Commerce Boulevard, Industrial District</p>
-              <p class="text-gray-500 text-xs">Tel: (123) 456-7890 | support@hardwareenterprise.com</p>
+              <p class="text-gray-500 text-xs">Tel: (123) 456-7890 | support@layosclothing.com</p>
             </div>
           </div>
           <div class="text-right bg-gray-50 p-4 rounded-lg border border-gray-200 w-full md:w-auto">

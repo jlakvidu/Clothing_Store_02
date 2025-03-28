@@ -94,7 +94,7 @@ const currentTime = formatTime()
               <BuildingLibraryIcon class="w-10 h-10 text-white" />
             </div>
             <div>
-              <h1 class="text-2xl font-bold text-gray-800">HARDWARE ENTERPRISE</h1>
+              <h1 class="text-2xl font-bold text-gray-800">LAYOS CLOTHING</h1>
               <p class="text-gray-500">Stock Adjustment Receipt</p>
             </div>
           </div>

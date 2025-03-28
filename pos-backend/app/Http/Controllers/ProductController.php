@@ -63,6 +63,7 @@ class ProductController extends Controller
                 'quantity' => 'required|integer',
                 'description' => 'required|string',
                 'admin_id' => 'required|exists:admins,id',
+                'bar_code' => 'string|nullable'  // Changed validation rule
             ]);
 
             if ($validator->fails()) {
@@ -73,8 +74,7 @@ class ProductController extends Controller
 
             $profit = $request->price - $request->seller_price;
 
-            // Create product first
-            $product = Product::create([
+            $productData = [
                 'name' => $request->name,
                 'price' => $request->price,
                 'seller_price' => $request->seller_price,
@@ -90,7 +90,11 @@ class ProductController extends Controller
                 'quantity' => $request->quantity,
                 'supplier_id' => $request->supplier_id,
                 'admin_id' => $request->admin_id,
-            ]);
+                'added_stock_amount' => $request->added_stock_amount,
+                'bar_code' => $request->bar_code  // Explicitly include bar_code
+            ];
+
+            $product = Product::create($productData);
 
             // Load supplier details
             $supplier = \App\Models\Supplier::find($request->supplier_id);
@@ -160,7 +164,8 @@ class ProductController extends Controller
                 'brand_name' => 'required|string|max:255',
                 'supplier_id' => 'required|exists:suppliers,id',
                 'admin_id' => 'required|exists:admins,id',
-                'added_stock_amount' => 'required|integer|min:0'
+                'added_stock_amount' => 'required|integer|min:0',
+                'bar_code' => 'nullable|string|max:255'  // Added validation for bar_code
             ]);
 
             if ($validator->fails()) {
@@ -187,7 +192,8 @@ class ProductController extends Controller
                 'brand_name' => $request->brand_name,
                 'supplier_id' => $request->supplier_id,
                 'admin_id' => $request->admin_id,
-                'added_stock_amount' => $request->added_stock_amount
+                'added_stock_amount' => $request->added_stock_amount,
+                'bar_code' => $request->bar_code  // Added bar_code to update
             ]);
 
             return $this->successResponse('Product updated successfully', $product);
